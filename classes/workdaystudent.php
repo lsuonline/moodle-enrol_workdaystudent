@@ -28,6 +28,11 @@ class workdaystudent {
     // Start the dtrace counter.
     private static $dtc = 0;
 
+    // Reset this after each loop is done.
+    public static function resetdtc() {
+        self::$dtc = 0;
+    }
+
     /**
      * Grabs the settings from config_plugins.
      *
@@ -330,12 +335,13 @@ class workdaystudent {
         $ap2->period_year = $periodyear;
         $ap2->academic_calendar = $period->Academic_Calendar;
         $ap2->academic_year = $academicyear;
-        $ap2->start_date = $startdate;
-        $ap2->end_date = $enddate;
+        $ap2->start_date = (string) $startdate;
+        $ap2->end_date = (string) $enddate;
+        $ap2->enabled = $ap->enabled;
 
         // Compare the objects.
-        if ($ap == $ap2) {
-            self::dtrace("Academic period $ap->academic_period_id matched $period->Academic_Period_ID, skipping.");
+        if (get_object_vars($ap) === get_object_vars($ap2)) {
+            self::dtrace("   - Academic period matched, skipping.");
             return $ap;
         } else {
             // Set the table.
@@ -345,12 +351,12 @@ class workdaystudent {
             $success = $DB->update_record($table, $ap2, false);
 
             if ($success) {
-                self::dtrace("Academic period $ap->academic_period_id has been updated from the endpoint.");
+                self::dtrace("   - Academic period $ap->academic_period_id has been updated from the endpoint.");
 
                 // Return the updated object.
                 return $ap2;
             } else {
-                mtrace("Updating $ap->academic_period_id failed and has not been updated.");
+                mtrace("   - Updating $ap->academic_period_id failed and has not been updated.");
 
                 // Return the original object.
                 return $ap;
@@ -391,9 +397,9 @@ class workdaystudent {
             $tap->end_date = $enddate;
 
             $ap = $DB->insert_record($table, $tap);
-            self::dtrace("Inserted academic_period_id: $tap->academic_period_id.");
+            self::dtrace("   - Inserted academic_period_id: $tap->academic_period_id.");
 
-            return $ap;
+            return $tap;
         } else {
             var_dump($period);
             return false;
@@ -416,7 +422,7 @@ class workdaystudent {
         $pd->date = strtotime($pdate->Date);
 
         $ap = $DB->insert_record($table, $pd);
-        self::dtrace("Inserted academic_period_id: $pd->academic_period_id.");
+        self::dtrace("    - Inserted $pd->academic_level $pd->date_type for $pd->academic_period_id.");
 
         return $ap;
     }
@@ -438,16 +444,14 @@ class workdaystudent {
         $pd2->date_type = $pdate->Date_Control;
         $pd2->date = (string) strtotime($pdate->Date);
 
-        if (!$pd === $pd2) {
+        if (get_object_vars($pd) !== get_object_vars($pd2)) {
             $ap = $DB->update_record($table, $pd2, false);
-            self::dtrace("Updated academic_period_id: $pd->academic_period_id.");
-            return $ap;
+            self::dtrace("    - Updated $pd2->academic_level $pd2->date_type for $pd2->academic_period_id.");
+            return $pd2;
         } else {
-            self::dtrace("Records matched perfectly for academic_period_id: $pd->academic_period_id, skipping.");
-            return true;
+            self::dtrace("    - $pd2->academic_level $pd2->date_type records matched perfectly, skipping.");
+            return $pd2;
         }
-        
-
     }
 
     public static function check_section($section) {
@@ -502,7 +506,7 @@ class workdaystudent {
         $as2->moodle_status = 'Pending';
 
         // Compare the objects.
-        if ($as == $as2) {
+        if (get_object_vars($as) === get_object_vars($as2)) {
             self::dtrace("Section $section->Section_Listing_ID matched stored value, skipping.");
 
             return $as;
@@ -574,7 +578,7 @@ class workdaystudent {
         $ac2->academic_level = $course->Academic_Level;
 
         // Compare the objects.
-        if ($ac == $ac2) {
+        if (get_object_vars($ac) === get_object_vars($ac2)) {
             self::dtrace("Course $ac->course_listing_id matched $course->Course_Listing_ID, skipping.");
             return $ac;
         } else {
@@ -760,7 +764,7 @@ class workdaystudent {
         $as2->prevstatus = $as->status;
 
         // Compare the objects.
-        if ($as == $as2) {
+        if (get_object_vars($as) === get_object_vars($as2)) {
             return $as;
         } else {
             // Set the table.
@@ -916,8 +920,8 @@ class workdaystudent {
         $au2->superior_unit_id = $unit->Superior_ID;
 
         // Compare the objects.
-        if ($au == $au2) {
-            self::dtrace("Academic unit $au->academic_unit_id matched $unit->Academic_Unit_ID, skipping.");
+        if (get_object_vars($au) === get_object_vars($au2)) {
+            self::dtrace(" - Academic unit $au->academic_unit_id matched $unit->Academic_Unit_ID, skipping.");
             return $au;
         } else {
             // Set the table.
@@ -927,12 +931,12 @@ class workdaystudent {
             $success = $DB->update_record($table, $au2, false);
 
             if ($success) {
-                self::dtrace("Academic unit $au->academic_unit_id has been updated from the endpoint.");
+                self::dtrace(" - Academic unit $au->academic_unit_id has been updated from the endpoint.");
 
                 // Return the updated object.
                 return $au2;
             } else {
-                mtrace("Updating $au->academic_unit_id failed and has not been updated.");
+                mtrace(" - Updating $au->academic_unit_id failed and has not been updated.");
 
                 // Return the original object.
                 return $au;
@@ -1468,7 +1472,7 @@ class workdaystudent {
         $pgm1->program_of_study = $program->Program_of_Study;
 
         // If the objects match.
-        if ($pgm == $pgm1) {
+        if (get_object_vars($pgm) === get_object_vars($pgm1)) {
             self::dtrace("  - Program object match, no update necessary.");
 
             // Return the original program.
@@ -1749,10 +1753,16 @@ class workdaystudent {
     }
 
     public static function get_local_units($s) {
-        $units = array();
-        $unit = new stdClass();
-        $unit->academic_unit_subtype = 'Institution';
-        $units[0] = $unit;
+        global $DB;
+
+        // Set the table.
+        $table = 'enrol_oes_units';
+
+        // Set up the conditions.
+        $conditions = array('academic_unit_subtype'=>'Institution');
+
+        // Fetch the units.
+        $units = $DB->get_records($table, $conditions, $sort = '', $fields = '*');
 
         return $units;
     }
@@ -1767,6 +1777,7 @@ class workdaystudent {
         // Check the campus.
         if (isset($s->campus)) {
             $parms['Superior_Unit!Academic_Unit_ID'] = $s->campus;
+            $parms['Institution_ID!Academic_Unit_ID'] = $s->campus;
         }
 
         // Check the date.
@@ -1774,6 +1785,7 @@ class workdaystudent {
             $parms['Last_Updated'] = $date;
         }
 
+        // Make sure we have the parm for our format.
         $parms['format'] = 'json';
 
         // Build out the settins based on settings, endpoint, and parms.
@@ -2278,7 +2290,7 @@ class workdaystudent {
         $stu2->middlename = isset($student->Middle_Name) ? $student->Middle_Name : null;
 
         // If the objects match.
-        if ($stu1 == $stu2) {
+        if (get_object_vars($stu1) === get_object_vars($stu2)) {
             self::dtrace("  - Student objects match, no update necessary.");
 
             // Return the original student.
@@ -2472,7 +2484,7 @@ class workdaystudent {
         $tea2->lastname = $teacher->Instructor_Last_Name;
 
         // If the objects match.
-        if ($tea1 == $tea2) {
+        if (get_object_vars($tea1) === get_object_vars($tea2)) {
             self::dtrace(" User objects match, no update necessary.");
 
             // Return the original teacher.
@@ -2598,7 +2610,7 @@ class workdaystudent {
                 }
 
                 // Compare the objects.
-                if ($data == $enr) {
+                if (get_object_vars($data) === get_object_vars($enr)) {
                     self::dtrace(" - Enrollment entry: $data->id matches exactly, skipping.");
 
                     return $enr;
@@ -2647,18 +2659,20 @@ class workdaystudent {
         return $similarity;
     }
 
-    public static function dtrace($message) {
+    public static function dtrace($message, $indent = null) {
         global $CFG;
+        $indent = !is_null($indent) ? '' : $indent;
         if ($CFG->debugdisplay == 1) {
             $mtrace = mtrace($message);
             return $mtrace;
         } else {
             self::$dtc++;
             if (self::$dtc % 50 === 0) {
-                $mtrace = ""; // TODO: print(".\n");
+                $mtrace = print(".\n");
             } else {
-                $mtrace = "";// TODO: print(".");
+                $mtrace = print(".");
             }
+
             return $mtrace;
         }
     }

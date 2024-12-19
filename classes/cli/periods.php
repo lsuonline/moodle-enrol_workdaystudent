@@ -36,12 +36,10 @@ $s = workdaystudent::get_settings();
 // Get the academic units.
 $lunits = workdaystudent::get_local_units($s);
 
-// Fetch 
-$endpoint = 'periods';
-
 $parms = workdaystudent::get_dates();
 
 foreach($lunits as $unit) {
+
     if ($unit->academic_unit_subtype == "Institution") {
 
         // Set the parms.
@@ -49,12 +47,14 @@ foreach($lunits as $unit) {
         $parms['format'] = 'json';
 
         // Build the url into settings.
-        $s = workdaystudent::buildout_settings($s, $endpoint, $parms);
+        $s = workdaystudent::buildout_settings($s, "periods", $parms);
 
         // Get the academic periods.
         $periods = workdaystudent::get_data($s);
 
         foreach ($periods as $period) {
+var_dump($period);
+die();
             // Get ancillary dates for census and post grades.
             $pdates = workdaystudent::get_period_dates($s, $period);
 

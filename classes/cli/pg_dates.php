@@ -34,7 +34,7 @@ require_once(__DIR__ . '/../workdaystudent.php');
 $s = workdaystudent::get_settings();
 
 // If we want to grab all campuses.
-unset($s->campus);
+// unset($s->campus);
 
 // Set the academic period.
 $parms = array();
@@ -42,6 +42,9 @@ $parms['Academic_Period!Academic_Period_ID'] = 'LSUAM_FALL_2024';
 
 // Gete the courses.
 $dates = workdaystudent::get_pg_dates($s, $parms);
+
+var_dump($dates);
+die();
 
 foreach($dates as $date) {
 $formatteddateobj = workdaystudent::format_pg_date($date);

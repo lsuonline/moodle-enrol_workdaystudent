@@ -46,15 +46,152 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         global $CFG;
         require_once('classes/workdaystudent.php');
 
-        // Get settings.
-        $s = workdaystudent::get_wdstudent_settings();
+        // Get settings. We ahve to do this several times as I overload them.
+        $s = workdaystudent::get_settings();
 
         // Set the start time.
         $starttime = microtime(true);
 
         mtrace("Starting Moodle Student enrollments.");
 
-        mtrace("Finished processing Moodle Student enrollments.");
+        // Begin processing units.
+        mtrace(" Fetching units from webserice.");
+
+        // Set the satart time for the units fetch.
+        $unitstart = microtime(true);
+
+        // Fetch units.
+        $units = workdaystudent::get_units($s);
+
+        // How many units did we grab.
+        $numunits = count($units);
+
+        // Set the end time for the units fetch.
+        $unitsend = microtime(true);
+
+        // Calculate the units fetch time.
+        $unitselapsed = round($unitsend - $unitstart, 2); 
+        
+        mtrace(" Fetched $numunits units from webserice in $unitselapsed seconds.");
+
+        mtrace(" Processing $numunits units from webserice.");
+
+        // Set the satart time for the units processing.
+        $unitsptart = microtime(true);
+
+        // Loop through the units.
+        foreach ($units as $unit) {
+
+            // Process the units.
+            $academicunitid = workdaystudent::insert_update_unit($s, $unit);
+        }
+
+        // Set the end time for the units processing.
+        $unitspend = microtime(true);
+
+        if ($CFG->debugdisplay == 1) {
+            mtrace(" Processed $numunits units in $unitselapsed seconds.");
+        } else {
+            mtrace("\n Processed $numunits units in $unitselapsed seconds.");
+        }
+
+
+
+
+
+
+        // Reset the counter. I hate this but I hate the weird logs more.
+        workdaystudent::resetdtc();
+
+        // Begin processing academic periods.
+        mtrace(" Begin processing academic periods for institutional units.");
+
+        // Get settings. We ahve to do this several times as I overload them.
+        $s = workdaystudent::get_settings();
+
+        // Set the period processing start time.
+        $periodstart = microtime(true);
+
+        // Get the local academic units.
+        $lunits = workdaystudent::get_local_units($s);
+
+        // Set up the date parms.
+        $parms = workdaystudent::get_dates();
+
+        // Set these up for later.
+        $processedunits = count($lunits);
+        $numperiods = 0;
+        $totalperiods = 0;
+
+        // Loop through all the the  units.
+        foreach($lunits as $unit) {
+
+            mtrace("  Begin processing periods for $unit->academic_unit_code - " .
+                "$unit->academic_unit_id: $unit->academic_unit.");
+
+            // In case something stupid happens, only process institutional units.
+            if ($unit->academic_unit_subtype == "Institution") {
+
+                // Add the relavent options to the date parms.
+                $parms['Institution!Academic_Unit_ID'] = $s->campus;
+                $parms['format'] = 'json';
+
+                // Build the url into settings.
+                $s = workdaystudent::buildout_settings($s, "periods", $parms);
+
+                // Get the academic periods.
+                $periods = workdaystudent::get_data($s);
+
+                $numperiods = count($periods);
+                $totalperiods = $totalperiods + $numperiods;
+
+                foreach ($periods as $period) {
+                    $indent = "   ";
+                    workdaystudent::dtrace("$indent" . "Processing $period->Academic_Period_ID: " .
+                        "$period->Name for $unit->academic_unit_id: $unit->academic_unit.", $indent);
+
+                    // Get ancillary dates for census and post grades.
+                    $pdates = workdaystudent::get_period_dates($s, $period);
+
+
+                    // Check to see if we have a matching period.
+                    $ap = workdaystudent::insert_update_period($s, $period);
+
+                    foreach ($pdates as $pdate) {
+                        // Set the academic period id to the pdate.
+                        $pdate->academic_period_id = $period->Academic_Period_ID;
+                        // Check to see if we have a matching period date entry.
+                        $date = workdaystudent::insert_update_period_date($s, $pdate);
+                    }
+                    workdaystudent::dtrace("$indent" . "Finished processing $period->Academic_Period_ID: " . 
+                        "$period->Name for $unit->academic_unit_id: $unit->academic_unit.", $indent);
+                }
+            }
+
+            if ($CFG->debugdisplay == 1) {
+                mtrace("  Finished processing $numperiods periods for " .
+                    "$unit->academic_unit_id: $unit->academic_unit.");
+            } else {
+                mtrace("\n  Finished processing $numperiods periods for " .
+                    "$unit->academic_unit_id: $unit->academic_unit.");
+            }
+        }
+
+        $periodsend = microtime(true);
+        $periodstime = round($periodsend - $periodstart, 2);
+        mtrace(" Finished processing $totalperiods periods across " .
+            "$processedunits units in $periodstime seconds.");
+
+
+
+
+
+
+
+        $endtime = microtime(true);
+        $elapsedtime = round($endtime - $starttime, 2);
+
+        mtrace("Finished processing Moodle Student enrollments in $elapsedtime seconds.");
     }
 
     /**
