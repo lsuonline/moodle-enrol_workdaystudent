@@ -27,7 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 if ($ADMIN->fulltree) {
 
     // Include the custom CSS for the settings page
-    $PAGE->requires->css(new moodle_url('/enrol/workdaystudent/css/settings.css'));
+//    $PAGE->requires->css(new moodle_url('/enrol/workdaystudent/css/settings.css'));
 
     $studentroles = array();
 
