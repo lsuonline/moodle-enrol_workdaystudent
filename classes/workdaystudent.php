@@ -495,6 +495,8 @@ class workdaystudent {
         $as2->course_section_definition_id = $section->Course_Section_Definition_ID;
         $as2->section_number = $section->Section_Number;
         $as2->course_definition_id = $section->Course_Definition_ID;
+        $as2->course_listing_id = $section->Course_Listing_ID;
+        $as2->course_subject_abbreviation = $section->Course_Subject_Abbreviation;
         $as2->academic_unit_id = $section->Academic_Unit_ID;
         $as2->academic_period_id = $section->Academic_Period_ID;
         $as2->course_section_title = $section->Course_Section_Title;
@@ -503,7 +505,6 @@ class workdaystudent {
         $as2->class_type = $section->Class_Type;
         $as2->controls_grading = $section->Controls_Grading;
         $as2->wd_status = isset($section->Course_Section_Status) ? $section->Course_Section_Status : 'Pending';
-        $as2->moodle_status = 'Pending';
 
         // Compare the objects.
         if (get_object_vars($as) === get_object_vars($as2)) {
@@ -545,6 +546,8 @@ class workdaystudent {
         $tas->course_section_definition_id = $section->Course_Section_Definition_ID;
         $tas->section_number = $section->Section_Number;
         $tas->course_definition_id = $section->Course_Definition_ID;
+        $tas->course_listing_id = $section->Course_Listing_ID;
+        $tas->course_subject_abbreviation = $section->Course_Subject_Abbreviation;
         $tas->academic_unit_id = $section->Academic_Unit_ID;
         $tas->academic_period_id = $section->Academic_Period_ID;
         $tas->course_section_title = $section->Course_Section_Title;
@@ -579,7 +582,7 @@ class workdaystudent {
 
         // Compare the objects.
         if (get_object_vars($ac) === get_object_vars($ac2)) {
-            self::dtrace("Course $ac->course_listing_id matched $course->Course_Listing_ID, skipping.");
+            self::dtrace("    Course $ac->course_listing_id matched $course->Course_Listing_ID, skipping.");
             return $ac;
         } else {
             // Set the table.
@@ -589,12 +592,12 @@ class workdaystudent {
             $success = $DB->update_record($table, $ac2, false);
 
             if ($success) {
-                self::dtrace("Academic unit $ac->course_listing_id has been updated from the endpoint.");
+                self::dtrace("    Course $ac->course_listing_id has been updated from the endpoint.");
 
                 // Return the updated object.
                 return $ac2;
             } else {
-                mtrace("Updating $ac->course_listing_id failed and has not been updated.");
+                mtrace("    Updating $ac->course_listing_id failed and has not been updated.");
 
                 // Return the original object.
                 return $ac;
@@ -642,7 +645,7 @@ class workdaystudent {
         $tac->academic_level = $course->Academic_Level;
 
         $ac = $DB->insert_record($table, $tac);
-        self::dtrace("Inserted course_listing_id: $tac->course_listing_id.");
+        self::dtrace("      Inserted course_listing_id: $tac->course_listing_id.");
 
         return $ac;
     }
@@ -867,20 +870,30 @@ class workdaystudent {
 
 
     public static function insert_update_course($s, $course) {
+        // Check to see if we have a matching course.
         $ac = self::check_course($course);
+
+        // We do! We do have a matching course.
         if (isset($ac->id)) {
+            // Update it.
             $ac = self::update_course($course, $ac);
         } else {
+            // Insert it.
             $ac = self::insert_course($course);
         }
         return $ac;
     }
 
     public static function insert_update_section($section) {
+        // Check to see if we have a matching section.
         $as = self::check_section($section);
+
+        // We do! We do have a matching section.
         if (isset($as->id)) {
+            // Update it.
             $as = self::update_section($section, $as);
         } else {
+            // Insert it.
             $as = self::insert_section($section);
         }
         return $as;
@@ -1483,6 +1496,8 @@ class workdaystudent {
             // Update the record.
             $success = $DB->update_record($table, $pgm1, false);
 
+            // TODO: RETURN ERRORS.
+
             // Return the new record.
             return $pgm1;
         }
@@ -1522,6 +1537,8 @@ class workdaystudent {
 
         // We may not need to fetch/send this. Revisit.
         $gs = $DB->get_record($table, array('id' => $gsid));
+
+        // TODO: RETURN ERRORS.
 
         return $gs;
     }
@@ -2545,20 +2562,32 @@ class workdaystudent {
 
     public static function insert_update_teacher_enrollment($sectionid, $universalid, $role, $status) {
         global $DB;
+
+        // Set the table.
         $table = 'enrol_oes_teacher_enrollments';
 
-//        if (is_null($universalid) && is_null($role)) {
+        // We do not have an instructor or a role.
+        if (is_null($universalid) && is_null($role)) {
 
+            // Build the SQL to grab existing instructors.
             $usql = 'SELECT * FROM {enrol_oes_teacher_enrollments} e
                     WHERE e.section_listing_id = "' . $sectionid . '"
                         AND (e.status = "enroll" OR e.status = "enrolled")
                         AND (e.role = "teacher" OR e.role = "primary")';
 
+            // Fetch the existing instructors.
             $uenrs = $DB->get_records_sql($usql);
 
+            // Build an empty array for later use.
             $unenrolls = array();
+
+            // If we have existing teachers who are no longer being sent over by the sis.
             if (!empty($uenrs)) {
+
+                // Loop through them.
                 foreach ($uenrs as $uenr) {
+
+                    // Build the sql to update their records.
                     $sql = 'UPDATE {enrol_oes_teacher_enrollments} e
                                 SET e.status = "unenroll",
                                     e.prevstatus = "' . $uenr->status . '",
@@ -2568,41 +2597,59 @@ class workdaystudent {
                                 AND e.universal_id = "' . $uenr->universal_id . '"
                                 AND (e.status = "enroll" OR e.status = "enrolled")
                                 AND (e.role = "teacher" OR e.role = "primary")';
+
+                    // Execute the SQL.
                     $unenrolls[] = $DB->execute($sql);
+
+                    // Log what we did.
                     self::dtrace("  $uenr->universal_id set to unenroll in $sectionid.");
                 }
 
                 self::dtrace(" All enrolled teachers in $sectionid set to unenroll.");
             }
-//            return $unenrolls;
-//        }
 
+            // TODO: ???? Return whatever unenrolls we did.
+            return $unenrolls;
+        }
+
+        // We have an instructor and a role.
         if (!is_null($universalid) && !is_null($role)) {
 
+            // Set the parms up.
             $parm = array('section_listing_id' => $sectionid, 'universal_id' => $universalid);
 
+            // Get the enrollment.
             $enr = $DB->get_record($table, $parm);
 
+            // We do not have an enrollment, so insert it.
             if (!$enr) {
-                $data = new stdClass();
 
+                // Build out the data object.
+                $data = new stdClass();
                 $data->universal_id = $universalid;
                 $data->section_listing_id = $sectionid;
                 $data->role = $role;
                 $data->status = $status;
 
-                $enroll = $DB->insert_record($table, $data, true);
+                // Insert the record.
+                $enroll = $DB->insert_record($table, $data, false);
                 self::dtrace(" - Inserted $universalid in $sectionid with role: $data->role and status: $data->status");
 
+                // TODO: ????
                 return $enroll;
-            } else {
-                $data = clone($enr);
 
+            // We returned a matching enrollment.
+            } else {
+
+                // Build out the data object.
+                $data = clone($enr);
                 $data->universal_id = $universalid;
                 $data->section_listing_id = $sectionid;
                 $data->prevrole = $enr->role;
                 $data->role = $role;
                 $data->status = $status;
+
+                // Deal with previous statuses.
                 if ($enr->status == 'unenroll' && ($enr->prevstatus == 'enroll' || $enr->prevstatus == 'enrolled')) {
                     $data->prevstatus = $data->prevstatus;
                 } else {
@@ -2615,14 +2662,15 @@ class workdaystudent {
 
                     return $enr;
                 } else {
+                    // Update the record and log.
                     $enroll = $DB->update_record($table, $data, false);
                     self::dtrace(" - Updated: $data->id - $universalid in $sectionid with role: $data->role and status: $data->status");
 
+                    // TODO: ????
                     return $enroll;
                 }
             }
         }
-    //    self::dtrace(" - User: $universalid present in $sectionid with role: $enr->role and status: $enr->status");
     }
 
     /**
@@ -2861,6 +2909,255 @@ class wdscronhelper {
         return true;
     }
 
+    public static function cronprograms() {
+
+        // Set the start time.
+        $timestarted = microtime(true);
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        mtrace("  Fetching programs of study.");
+
+        // Get the programs from the webservice.
+        $programs = workdaystudent::get_programs($s);
+
+        // Count them.
+        $numgrabbed = count($programs);
+
+        // Gett the time it took to fetch them and log it.
+        $gstime = round(microtime(true) - $timestarted, 3);
+        mtrace("    Took $gstime seconds to fetch $numgrabbed remote programs of study.");
+
+        // Set the update start time.
+        $timeustarted = microtime(true);
+
+        // Insert or update the programs.
+        $pgms = workdaystudent::insert_update_programs($programs);
+
+        // Set the time it took to insert and update them.
+        $ugstime = round(microtime(true) - $timeustarted, 3);
+
+        // Set the time it took to run the entire process.
+        $uttime = round(microtime(true) - $timestarted, 3);
+
+        if (is_array($pgms)) {
+            // Get a program count.
+            $pgmcount = count($pgms);
+
+            mtrace("    Took $ugstime seconds to insert or update $pgmcount programs of study.");
+        } else {
+            mtrace("    Updating $numgrabbed programs of study failed.");
+        }
+
+        mtrace("  Took $uttime seconds to complete the fetch and update $pgmcount programs.");
+
+        return true;
+    }
+
+    public static function croncourses() {
+
+        // Set the start time.
+        $timestarted = microtime(true);
+
+        mtrace("  Fetching courses.");
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Get our all campus setting if it's there.
+        $all = isset($s->allcampuses) ? $s->allcampuses : false;
+
+        if ($all) {
+            // If we want to grab all campuses.
+            // unset($s->campus);
+        }
+
+        // Gete the courses.
+        $courses = workdaystudent::get_wd_courses($s);
+
+        // Sort the courses.
+        $courses = workdaystudent::sort_courses($courses);
+
+        // Count them.
+        $numgrabbed = count($courses);
+
+        // Get the time it took to fetch them and log it.
+        $gstime = round(microtime(true) - $timestarted, 3);
+
+        mtrace("    Took $gstime seconds to fetch $numgrabbed remote courses.");
+
+        // Set the update start time.
+        $timeustarted = microtime(true);
+
+        // Build the icourses storage array.
+        $icourses = array();
+
+        // Loop through the courses.
+        foreach ($courses as $course) {
+
+            // Identify fake courses.
+            $faker = workdaystudent::id_fake_courses($course);
+
+            // Remove the fakes.
+            if (isset($faker[0])) {
+                unset($course);
+                continue;
+            }
+
+            // Insert or update course data as needed.
+            $icourse = workdaystudent::insert_update_course($s, $course);
+
+            $icourses[] = $icourse;
+        }
+
+        // Set the time it took to insert and update them.
+        $ugstime = round(microtime(true) - $timeustarted, 3);
+
+        // Set the time it took to run the entire process.
+        $uttime = round(microtime(true) - $timestarted, 3);
+
+        mtrace("    Took $ugstime seconds to insert or update $numgrabbed courses.");
+        mtrace("  Took $uttime seconds to complete the fetch and update $numgrabbed courses.");
+
+        return $icourses;
+    }
+
+    public static function cronsections() {
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        $periods = workdaystudent::get_current_periods($s);
+
+        $numgrabbed = 0;
+
+        foreach($periods as $period) {
+            // Set upo the parameter array.
+            $parms = array();
+
+            // Add the academic period id.
+            $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
+
+            // Set up some timing.
+            $grabstart = microtime(true);
+
+            // Get the sections.
+            $sections = workdaystudent::get_sections($s, $parms);
+
+            // Count how many sections we grabbed for this period.
+            $numgrabbedperiod = count($sections);
+
+            // Add them up in a self referential variable.
+            $numgrabbed = $numgrabbedperiod + $numgrabbed;
+
+            // Time how long grabbing the data from the WS took.
+            $grabend = microtime(true);
+            $grabtime = round($grabend - $grabstart, 2);
+            mtrace("\n  Fetched $numgrabbedperiod sections from $period->academic_period_id in $grabtime seconds. Processing.");
+
+            // Set up some timing.
+            $processstart = microtime(true);
+
+            // Loop through the sections.
+            foreach ($sections as $section) {
+
+                // Insert or update this section.
+                $sec = workdaystudent::insert_update_section($section);
+
+                // If we do not have an instructor, let us know.
+                if (!isset($section->Instructor_Info)) {
+                    workdaystudent::dtrace("    - No instructors in $section->Section_Listing_ID.");
+
+                    // We don't have any instructors listed at the SIS, so unenroll any we might have already there.
+                    $enrollment = workdaystudent::insert_update_teacher_enrollment(
+                        $section->Section_Listing_ID,
+                        $tid = null,
+                        $role = null, 'unenroll');
+
+                // If we have multiple instructors listed, deal with it.
+                } else if (count($section->Instructor_Info) > 1) {
+                    workdaystudent::dtrace("    - More than 1 instructor in $section->Section_Listing_ID.");
+
+                    // Loop through the instructors.
+                    foreach ($section->Instructor_Info as $teacher) {
+
+                        // Set some variables for later use.
+                        $secid = $section->Section_Listing_ID;
+                        $tid = $teacher->Instructor_ID;
+                        $pmi = isset($section->PMI_Universal_ID) ? $section->PMI_Universal_ID : null;
+                        $status = 'enroll';
+
+                        // If we have a primary instructor.
+                        if (!is_null($pmi)) {
+                            workdaystudent::dtrace("    Primary instructor $pmi found!");
+
+                            // Set the role to primary if the teacher matches the pmi.
+                            $role = $tid == $pmi ? 'primary' : 'teacher';
+
+                            // Set the teacher id to either the teacher id or primary id depending on what we have.
+                            $tid = $tid == $pmi ? $pmi : $tid;
+
+                        // We don't have a primary, only multiple non-primaries.
+                        } else {
+                            workdaystudent::dtrace("    More than one instructor in $secid and $tid is non-primary.");
+
+                            // Set the role to non-primary.
+                            $role = 'teacher';
+                        }
+
+                        // Update the teacher user info.
+                        $iteacher = workdaystudent::create_update_iteacher($s, $teacher);
+
+                        // Update the teacher enrollment db.
+                        $enrollment = workdaystudent::insert_update_teacher_enrollment($secid, $tid, $role, $status);
+                    }
+
+                // We only have one instructor.
+                } else {
+
+                    // Set some variables for later use.
+                    $teacher = $section->Instructor_Info[0];
+                    $secid = $section->Section_Listing_ID;
+                    $tid = $teacher->Instructor_ID;
+                    $pmi = isset($section->PMI_Universal_ID) ? $section->PMI_Universal_ID : null;
+                    $status = 'enroll';
+
+                    // If we have a primary instructor.
+                    if (!is_null($pmi)) {
+                        workdaystudent::dtrace("    Primary instructor $pmi found!");
+
+                        // Set the role to primary if the teacher matches the pmi.
+                        $role = $tid == $pmi ? 'primary' : 'teacher';
+
+                        // Set the teacher id to either the teacher id or primary id depending on what we have.
+                        $tid = $tid == $pmi ? $pmi : $tid;
+
+                    // We don't have a primary.
+                    } else {
+                        workdaystudent::dtrace("    Sole instructor in $secid and $tid is non-primary.");
+
+                        // Set the role to non-primary.
+                        $role = 'teacher';
+                    }
+
+                    // Update the teacher user info.
+                    $iteacher = workdaystudent::create_update_iteacher($s, $teacher);
+
+                    // Update the teacher enrollment db.
+                    $enrollment = workdaystudent::insert_update_teacher_enrollment($secid, $tid, $role, $status);
+                }
+            }
+        }
+        // Get the current time.
+        $processend = microtime(true);
+
+        // Calculate how long this crap took and log it.
+        $processtime = round($processend - $processstart, 2);
+        mtrace("\n  Processing $numgrabbed sections took $processtime seconds.");
+    }
+
+// Class end.
 }
 
 /*
