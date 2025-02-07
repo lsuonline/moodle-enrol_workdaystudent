@@ -68,6 +68,14 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process courses.
         $cronsections = wdscronhelper::cronsections();
 
+        // $cronshells = wdscronhelper::cronshells();
+
+        // Process grading schemes.
+        $crongradingschemes = wdscronhelper::crongradeschemes();
+
+        // Process students.
+        $cronstudents = wdscronhelper::cronstudents();
+
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);
 

@@ -899,6 +899,32 @@ class workdaystudent {
         return $as;
     }
 
+    public static function check_shell($shell) {
+        global $DB;
+
+        :q
+:q
+:q
+:q
+
+    }
+
+    public static function create_update_shell($shell) {
+        // Check to see if we have a matching course shell.
+        $cs = self::check_shell($shell);
+
+        // We do! We do have a matching course shell.
+        if (isset($cs->id)) {
+            // Update it.
+            $cs = self::update_shell($shell, $cs);
+        } else {
+            // Insert it.
+            $cs = self::create_shell($shell);
+        }
+        return $cs;
+    }
+
+
     public static function insert_update_period($s, $period) {
         $ap = self::check_period($period);
         if (isset($ap->id)) {
@@ -1352,6 +1378,14 @@ class workdaystudent {
         // Get the actual data.
         $semesters = $DB->get_records_sql($sql);
 
+        // TODO: REMOVE THE HARD CODED SEMESTER.
+        // Create the object.
+        $forcedperiod = new stdClass();
+        // Set the data.
+        $forcedperiod->academic_period_id = "LSUAM_SPRING_2024";
+        // Add the object to the array using array_push.
+        array_push($semesters, $forcedperiod);
+
         return $semesters;
     }
 
@@ -1574,13 +1608,14 @@ class workdaystudent {
 
         // Build the $gs array for future use.
         $gs = array();
-
+$counter = 0;
         // If we successfully truncated, insert data.
         if ($success) {
             mtrace("  Successfully truncated enrol_oes_grade_schemes.");
 
             // Get the grading schemas.
             foreach ($gradingschemes as $gradingschema) {
+                self::dtrace("    Processing $gradingschema->Student_Grading_Scheme_ID.");
 
                 // Get the grading schemes from each Grades_group.
                 foreach ($gradingschema->Grades_group as $gradingscheme) {
@@ -1598,6 +1633,8 @@ class workdaystudent {
 
                     // Add the grading scheme id into the child array.
                     $gradingscheme->Student_Grading_Scheme_ID = $gsid;
+$counter++;
+                    self::dtrace("      -($counter) Processing $gradingscheme->Grading_Basis - $gradingscheme->Student_Grade_Display.");
 
                     // Insert each grading scheme and add it to the $gs array.
                     $gs = array_merge($gs, self::insert_grading_scheme($gradingscheme));
@@ -1650,7 +1687,7 @@ class workdaystudent {
         // We have multiple grading basis', go nuts.
         } else {
 
-            // Get the multiple gradeing basis' from the ; separated list.
+            // Get the multiple grading basis' from the ; separated list.
             $mgb = array_map('trim', explode(';', $gradingscheme->Grading_Basis));
 
             // Loop through our grading basis'.
@@ -1669,6 +1706,46 @@ class workdaystudent {
         }
 
         return $gs;
+    }
+
+    public static function get_potential_new_basic_shells($period) {
+        global $DB;
+
+        $params = [
+            'periodid' => $period->academic_period_id
+        ];
+
+        $sql = 'SELECT sec.id,
+                    p.period_year,
+                    p.period_type,
+                    cou.course_subject_abbreviation,
+                    cou.course_number,
+                    sec.section_number,
+                    te.universal_id,
+                    COALESCE(t.preferred_firstname, t.firstname) AS firstname,
+                    COALESCE(t.preferred_lastname, t.lastname) AS lastname
+                FROM {enrol_oes_sections} sec
+                    INNER JOIN {enrol_oes_teacher_enrollments} te ON
+                        sec.section_listing_id = te.section_listing_id
+                    INNER JOIN {enrol_oes_courses} cou ON
+                        cou.course_listing_id = sec.course_listing_id
+                    INNER JOIN {enrol_oes_periods} p ON
+                        p.academic_period_id = sec.academic_period_id
+                    INNER JOIN {enrol_oes_teachers} t ON
+                        t.universal_id = te.universal_id
+                WHERE sec.idnumber IS NULL
+                    AND sec.academic_period_id = :periodid
+                GROUP BY cou.course_listing_id, te.universal_id
+                ORDER BY te.universal_id ASC,
+                    cou.course_subject_abbreviation ASC,
+                    cou.course_number ASC,
+                    sec.section_number ASC';
+
+        // Run the SQL for this period.
+        $pns = $DB->get_records_sql($sql, $params);
+
+        // Return the data.
+        return $pns;
     }
 
     public static function get_sections($s, $parms) {
@@ -3054,7 +3131,8 @@ class wdscronhelper {
             // Time how long grabbing the data from the WS took.
             $grabend = microtime(true);
             $grabtime = round($grabend - $grabstart, 2);
-            mtrace("\n  Fetched $numgrabbedperiod sections from $period->academic_period_id in $grabtime seconds. Processing.");
+            mtrace("\n  Fetched $numgrabbedperiod sections from " .
+                "$period->academic_period_id in $grabtime seconds. Processing.");
 
             // Set up some timing.
             $processstart = microtime(true);
@@ -3067,9 +3145,10 @@ class wdscronhelper {
 
                 // If we do not have an instructor, let us know.
                 if (!isset($section->Instructor_Info)) {
-                    workdaystudent::dtrace("    - No instructors in $section->Section_Listing_ID.");
+                    workdaystudent::dtrace("    - No instructors in " .
+                        "$section->Section_Listing_ID.");
 
-                    // We don't have any instructors listed at the SIS, so unenroll any we might have already there.
+                    // We don't have any instructors. Unenroll accordingly.
                     $enrollment = workdaystudent::insert_update_teacher_enrollment(
                         $section->Section_Listing_ID,
                         $tid = null,
@@ -3077,7 +3156,8 @@ class wdscronhelper {
 
                 // If we have multiple instructors listed, deal with it.
                 } else if (count($section->Instructor_Info) > 1) {
-                    workdaystudent::dtrace("    - More than 1 instructor in $section->Section_Listing_ID.");
+                    workdaystudent::dtrace("    - More than 1 instructor " .
+                        "in $section->Section_Listing_ID.");
 
                     // Loop through the instructors.
                     foreach ($section->Instructor_Info as $teacher) {
@@ -3085,7 +3165,9 @@ class wdscronhelper {
                         // Set some variables for later use.
                         $secid = $section->Section_Listing_ID;
                         $tid = $teacher->Instructor_ID;
-                        $pmi = isset($section->PMI_Universal_ID) ? $section->PMI_Universal_ID : null;
+                        $pmi = isset($section->PMI_Universal_ID) ?
+                            $section->PMI_Universal_ID :
+                            null;
                         $status = 'enroll';
 
                         // If we have a primary instructor.
@@ -3095,27 +3177,35 @@ class wdscronhelper {
                             // Set the role to primary if the teacher matches the pmi.
                             $role = $tid == $pmi ? 'primary' : 'teacher';
 
-                            // Set the teacher id to either the teacher id or primary id depending on what we have.
+                            // Set the teacher id appropriately.
                             $tid = $tid == $pmi ? $pmi : $tid;
 
                         // We don't have a primary, only multiple non-primaries.
                         } else {
-                            workdaystudent::dtrace("    More than one instructor in $secid and $tid is non-primary.");
+                            workdaystudent::dtrace("    More than one instructor " .
+                                " in $secid and $tid is non-primary.");
 
                             // Set the role to non-primary.
                             $role = 'teacher';
                         }
 
                         // Update the teacher user info.
-                        $iteacher = workdaystudent::create_update_iteacher($s, $teacher);
+                        $iteacher = workdaystudent::create_update_iteacher(
+                            $s,
+                            $teacher
+                        );
 
                         // Update the teacher enrollment db.
-                        $enrollment = workdaystudent::insert_update_teacher_enrollment($secid, $tid, $role, $status);
+                        $enrollment = workdaystudent::insert_update_teacher_enrollment(
+                            $secid,
+                            $tid,
+                            $role,
+                            $status
+                        );
                     }
 
                 // We only have one instructor.
                 } else {
-
                     // Set some variables for later use.
                     $teacher = $section->Instructor_Info[0];
                     $secid = $section->Section_Listing_ID;
@@ -3155,6 +3245,209 @@ class wdscronhelper {
         // Calculate how long this crap took and log it.
         $processtime = round($processend - $processstart, 2);
         mtrace("\n  Processing $numgrabbed sections took $processtime seconds.");
+    }
+
+    public static function cronshells() {
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Get the current periods.
+        $periods = workdaystudent::get_current_periods($s);
+
+        // Set this for later.
+        $numgrabbed = 0;
+
+        // Loop through the current periods.
+        foreach($periods as $period) {
+        }
+    }
+
+    public static function crongradeschemes() {
+
+        // Log it.
+        mtrace("  Fetching and updating grading schemes.");
+
+        // Set the time started.
+        $timestarted = microtime(true);
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Fetch the grade schemes from the endpoint.
+        $gradingschemes = workdaystudent::get_grading_schemes($s);
+
+        // Count them.
+        $numgrabbed = count($gradingschemes);
+
+        // Caclulate how long that took.
+        $gstime = round(microtime(true) - $timestarted, 3);
+
+        // Log it.
+        mtrace("    It took $gstime seconds to fetch $numgrabbed remote grading schemes.");
+
+        // Set the update time start.
+        $timeustarted = microtime(true);
+
+        // Update all the grading schemes.
+        $gs = workdaystudent::clear_insert_grading_schemes($gradingschemes);
+
+        // Calculate how long that took.
+        $ugstime = round(microtime(true) - $timeustarted, 3);
+
+        if (!$gs) {
+            // Log it.
+            mtrace("    ERROR: Something went wrong with the updating of grading schemes.");
+            mtrace("  Processing of grading schems is complete.");
+
+            return false;
+        } else {
+            $gscount = count($gs);
+
+            // Log it.
+            mtrace("    It took $ugstime seconds to fetch and insert $gscount " .
+                "records in $numgrabbed updated grading schemes.");
+            mtrace("  Processing of grading schems is complete.");
+
+            return true;
+        }
+    }
+
+    public static function cronstudents() {
+
+        $timestart = microtime(true);
+
+        // Include the main Moodle config.
+        require_once(__DIR__ . '/../../../config.php');
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Define this for later.
+        $sportfield = $s->sportfield;
+
+        // Gete the academic units.
+        $periods = workdaystudent::get_current_periods($s);
+
+        // Get and set some counts.
+        $studentcounter = 0;
+
+        // Truncate metadata because it's WAY faster than deleting rows that don't exist and updating existing data.
+        $truncated = workdaystudent::truncate_studentmeta();
+
+        // Loop through the periods.
+        foreach ($periods as $period) {
+
+            mtrace("Fetching students in $period->academic_period_id.");
+            // Set some things up for future.
+            $athletecounter = 0;
+            $numathletes = 0;
+
+            // Set the webservice start time.
+            $wsstime = microtime(true);
+
+            // Get students.
+            $students = workdaystudent::get_students($s,
+                $periodid = $period->academic_period_id,
+                $studentid = '');
+
+            // Set the webservice end time.
+            $wsetime = microtime(true);
+
+            // Calculate how long the webservice took to connect and return data.
+            $wselapsed = round($wsetime - $wsstime, 2);
+
+            mtrace("Beginning the process of populating the " .
+                "interstitial student db for $period->academic_period_id.");
+
+            // IF we get some data, do all the things.
+            if (is_array($students)) {
+
+                // How many students did we get?
+                $records = count($students);
+
+                // Set up the sports array.
+                $sports = array();
+                mtrace("It took $wselapsed seconds to pull $records " .
+                    "students in $period->academic_period_id from the webservice.");
+
+                // Loop through the students and insert / update their data.
+                foreach ($students as $student) {
+
+                    // Build out the email address suffix.
+                    $esuffix = $s->campusname . '_Email';
+
+                    // If the default suffix does not exist, look for others.
+                    if (isset($student->$esuffix)) {
+
+                        // We have a default email. Grab it like you want it.
+                        $email = isset($student->$esuffix) ?
+                            $student->$esuffix :
+                            null;
+                    } else {
+                        workdaystudent::dtrace(
+                            'We found a non-default or missing email for ' . 
+                            $student->Universal_Id . ' - ' .
+                            $student->First_Name . ' ' .
+                            $student->Last_Name . '.');
+
+                        // We do not have a default suffix, build one out based on institution.
+                        $esuffix = workdaystudent::get_suffix_from_institution($student) . '_Email';
+
+                        // Set email accordingly.
+                        $email = isset($student->$esuffix) ? $student->$esuffix : null;
+                    }
+
+                    // GTFO if we don't have a UID or email.
+                    if (!isset($student->Universal_Id) || is_null($email)) {
+
+                        // Set these for logging.
+                        $uid = isset($student->Universal_Id) ?
+                            $student->Universal_Id :
+                            "Missing UID";
+
+                        $email = isset($email) && !is_null($email) ?
+                            $email :
+                            "Missing Email";
+
+                        // Log that something vital was missing.
+                        mtrace("\nMissing either UID: $uid or email: " . 
+                            "$email - $student->First_Name $student->Last_Name.");
+
+                        continue;
+                    }
+
+                    // Increment the student counter.
+                    $studentcounter++;
+
+                    // Populate the interstitial DB.
+                    $stu = workdaystudent::create_update_istudent($s, $student);
+
+                    // Populate the student metadata.
+                    $meta = workdaystudent::insert_all_studentmeta($s,
+                        $stu,
+                        $student,
+                        $period);
+
+                    // Add the above response to the number of athletes.
+                    $numathletes = $numathletes + $meta;
+                }
+
+                // Count how many sports we have.
+                $sportcount = count(array_unique($sports));
+
+                // Get the end time.
+                $timeend = microtime(true);
+
+                // Calculate the elapsed time.
+                $elapsed = round($timeend - $timestart, 2);
+
+                mtrace("\nFinished populating the interstitial student db for " . 
+                    "$period->academic_period_id.");
+                mtrace("It took $elapsed seconds to find and process $numathletes " .
+                    "athletes across $studentcounter students in $s->campusname for " .
+                    "$period->academic_period_id.");
+            }
+        }
     }
 
 // Class end.
