@@ -901,12 +901,6 @@ class workdaystudent {
 
     public static function check_shell($shell) {
         global $DB;
-
-        :q
-:q
-:q
-:q
-
     }
 
     public static function create_update_shell($shell) {
@@ -1368,7 +1362,7 @@ class workdaystudent {
 
         // Build the SQL.
         $sql = "SELECT p.academic_period_id
-                  FROM mdl_enrol_wds_periods p
+                  FROM {enrol_wds_periods} p
                 WHERE p.enabled = 1
                   AND ((p.start_date < UNIX_TIMESTAMP() + $fsemrange
                   AND p.end_date > UNIX_TIMESTAMP())
@@ -1393,8 +1387,8 @@ class workdaystudent {
         global $DB;
 
         $sql = 'SELECT s.*
-            FROM mdl_enrol_wds_periods p
-                INNER JOIN mdl_enrol_wds_sections s ON p.academic_period_id = s.academic_period_id
+            FROM {enrol_wds_periods} p
+                INNER JOIN {enrol_wds_sections} s ON p.academic_period_id = s.academic_period_id
             WHERE p.start_date < UNIX_TIMESTAMP(NOW())
                 AND p.end_date > UNIX_TIMESTAMP(NOW())
                 AND p.enabled = 1';

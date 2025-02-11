@@ -17,9 +17,9 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="wds_uid_idx" UNIQUE="false" FIELDS="academic_unit_id"/>
-        <INDEX NAME="wds_uis_idx" UNIQUE="false" FIELDS="academic_unit_subtype"/>
-        <INDEX NAME="wds_uic_idx" UNIQUE="false" FIELDS="academic_unit_code"/>
+        <INDEX NAME="wds_uni_uid_idx" UNIQUE="false" FIELDS="academic_unit_id"/>
+        <INDEX NAME="wds_uni_uis_idx" UNIQUE="false" FIELDS="academic_unit_subtype"/>
+        <INDEX NAME="wds_uni_uic_idx" UNIQUE="false" FIELDS="academic_unit_code"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="enrol_wds_periods" COMMENT="enrol_wds_periods table retrofitted from MySQL">
@@ -39,11 +39,11 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="enr_api_idx" UNIQUE="false" FIELDS="academic_period_id"/>
-        <INDEX NAME="oep_ept_idx" UNIQUE="false" FIELDS="period_type"/>
-        <INDEX NAME="oep_epy_idx" UNIQUE="false" FIELDS="period_year"/>
-        <INDEX NAME="oep_sdt_idx" UNIQUE="false" FIELDS="start_date"/>
-        <INDEX NAME="oep_edt_idx" UNIQUE="false" FIELDS="end_date"/>
+        <INDEX NAME="wds_per_api_idx" UNIQUE="false" FIELDS="academic_period_id"/>
+        <INDEX NAME="wds_per_ept_idx" UNIQUE="false" FIELDS="period_type"/>
+        <INDEX NAME="wds_per_epy_idx" UNIQUE="false" FIELDS="period_year"/>
+        <INDEX NAME="wds_per_sdt_idx" UNIQUE="false" FIELDS="start_date"/>
+        <INDEX NAME="wds_per_edt_idx" UNIQUE="false" FIELDS="end_date"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="enrol_wds_grade_schemes" COMMENT="enrol_wds_grade_schemes table retrofitted from MySQL">
@@ -60,10 +60,10 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="mdl_oesg_grb_ix" UNIQUE="false" FIELDS="grading_basis"/>
-        <INDEX NAME="mdl_oesg_gid_ix" UNIQUE="false" FIELDS="grade_id"/>
-        <INDEX NAME="mdl_oesg_gdi_ix" UNIQUE="false" FIELDS="grade_display"/>
-        <INDEX NAME="mdl_oesg_gsi_ix" UNIQUE="false" FIELDS="grading_scheme_id"/>
+        <INDEX NAME="wds_grs_grb_ix" UNIQUE="false" FIELDS="grading_basis"/>
+        <INDEX NAME="wds_grs_gid_ix" UNIQUE="false" FIELDS="grade_id"/>
+        <INDEX NAME="wds_grs_gdi_ix" UNIQUE="false" FIELDS="grade_display"/>
+        <INDEX NAME="wds_grs_gsi_ix" UNIQUE="false" FIELDS="grading_scheme_id"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="enrol_wds_pgc_dates" COMMENT="enrol_wds_pgc_dates table retrofitted from MySQL">
@@ -78,8 +78,8 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="oed_pgcd_pidx" UNIQUE="false" FIELDS="academic_period_id"/>
-        <INDEX NAME="oed_pgcd_dx" UNIQUE="false" FIELDS="date"/>
+        <INDEX NAME="wds_pgc_pgcd_pidx" UNIQUE="false" FIELDS="academic_period_id"/>
+        <INDEX NAME="wds_pgc_pgcd_dx" UNIQUE="false" FIELDS="date"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="enrol_wds_sport" COMMENT="enrol_wds_sport table retrofitted from MySQL">
@@ -125,13 +125,13 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="wds_cli_idx" UNIQUE="false" FIELDS="course_listing_id"/>
-        <INDEX NAME="wds_cui_idx" UNIQUE="false" FIELDS="academic_unit_id"/>
-        <INDEX NAME="wds_cdi_idx" UNIQUE="false" FIELDS="course_definition_id"/>
-        <INDEX NAME="wds_cn_idx" UNIQUE="false" FIELDS="course_number"/>
-        <INDEX NAME="wds_csa_idx" UNIQUE="false" FIELDS="course_subject_abbreviation"/>
-        <INDEX NAME="wds_al_idx" UNIQUE="false" FIELDS="academic_level"/>
-        <INDEX NAME="wds_csc_idx" UNIQUE="false" FIELDS="subject_code"/>
+        <INDEX NAME="wds_cou_cli_idx" UNIQUE="false" FIELDS="course_listing_id"/>
+        <INDEX NAME="wds_cou_cui_idx" UNIQUE="false" FIELDS="academic_unit_id"/>
+        <INDEX NAME="wds_cou_cdi_idx" UNIQUE="false" FIELDS="course_definition_id"/>
+        <INDEX NAME="wds_cou_cn_idx" UNIQUE="false" FIELDS="course_number"/>
+        <INDEX NAME="wds_cou_csa_idx" UNIQUE="false" FIELDS="course_subject_abbreviation"/>
+        <INDEX NAME="wds_cou_al_idx" UNIQUE="false" FIELDS="academic_level"/>
+        <INDEX NAME="wds_cou_csc_idx" UNIQUE="false" FIELDS="subject_code"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="enrol_wds_sections" COMMENT="enrol_wds_sections table retrofitted from MySQL">
@@ -206,8 +206,8 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="wds_enr_uid_ix" UNIQUE="false" FIELDS="universal_id"/>
-        <INDEX NAME="wds_enr_sli_ix" UNIQUE="false" FIELDS="section_listing_id"/>
+        <INDEX NAME="wds_ten_uid_ix" UNIQUE="false" FIELDS="universal_id"/>
+        <INDEX NAME="wds_ten_sli_ix" UNIQUE="false" FIELDS="section_listing_id"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="enrol_wds_students" COMMENT="enrol_wds_students table retrofitted from MySQL">
@@ -274,10 +274,10 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="wds_sto_uid_idx" UNIQUE="false" FIELDS="universal_id"/>
-        <INDEX NAME="wds_sto_reg_idx" UNIQUE="false" FIELDS="registration_status"/>
-        <INDEX NAME="wds_sto_sli_idx" UNIQUE="false" FIELDS="section_listing_id"/>
-        <INDEX NAME="wds_sto_sta_idx" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="wds_ste_uid_idx" UNIQUE="false" FIELDS="universal_id"/>
+        <INDEX NAME="wds_ste_reg_idx" UNIQUE="false" FIELDS="registration_status"/>
+        <INDEX NAME="wds_ste_sli_idx" UNIQUE="false" FIELDS="section_listing_id"/>
+        <INDEX NAME="wds_ste_sta_idx" UNIQUE="false" FIELDS="status"/>
       </INDEXES>
     </TABLE>
   </TABLES>
