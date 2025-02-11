@@ -227,7 +227,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_periods';
+        $table = 'enrol_wds_periods';
 
         // Set the parameters.
         $parms = array('academic_period_id' => $period->Academic_Period_ID);
@@ -242,7 +242,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_pgc_dates';
+        $table = 'enrol_wds_pgc_dates';
 
         // Set the parameters.
         $parms = array('academic_period_id' => $date->academic_period_id,
@@ -261,7 +261,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_units';
+        $table = 'enrol_wds_units';
 
         // Set the parameters.
         $parms = array('academic_unit_id' => $unit->Academic_Unit_ID);
@@ -345,7 +345,7 @@ class workdaystudent {
             return $ap;
         } else {
             // Set the table.
-            $table = 'enrol_oes_periods';
+            $table = 'enrol_wds_periods';
 
             // Update the record.
             $success = $DB->update_record($table, $ap2, false);
@@ -371,7 +371,7 @@ class workdaystudent {
         if (isset($period->Academic_Year) && (isset($period->academic_period_id) || isset($period->Academic_Period_ID))) {
 
             // Set the table.
-            $table = 'enrol_oes_periods';
+            $table = 'enrol_wds_periods';
 
             // Create the object.
             $tap = new stdClass();
@@ -410,7 +410,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_pgc_dates';
+        $table = 'enrol_wds_pgc_dates';
 
         // Create the object.
         $pd = new stdClass();
@@ -432,7 +432,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_pgc_dates';
+        $table = 'enrol_wds_pgc_dates';
 
         // Create the object.
         $pd2 = new stdClass();
@@ -458,7 +458,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_sections';
+        $table = 'enrol_wds_sections';
 
         // Set the parameters.
         $parms = array('section_listing_id' => $section->Section_Listing_ID);
@@ -474,7 +474,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_courses';
+        $table = 'enrol_wds_courses';
 
         // Set the parameters.
         $parms = array('course_listing_id' => $course->Course_Listing_ID);
@@ -500,7 +500,7 @@ class workdaystudent {
         $as2->academic_unit_id = $section->Academic_Unit_ID;
         $as2->academic_period_id = $section->Academic_Period_ID;
         $as2->course_section_title = $section->Course_Section_Title;
-        $as2->course_section_abbreviated_title = $section->Course_Section_Abbreviated_Title;
+        $as2->course_section_abbrev_title = $section->Course_Section_Abbreviated_Title;
         $as2->delivery_mode = $section->Delivery_Mode;
         $as2->class_type = $section->Class_Type;
         $as2->controls_grading = $section->Controls_Grading;
@@ -513,7 +513,7 @@ class workdaystudent {
             return $as;
         } else {
             // Set the table.
-            $table = 'enrol_oes_sections';
+            $table = 'enrol_wds_sections';
 
             // Update the record.
             $success = $DB->update_record($table, $as2, false);
@@ -536,7 +536,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_sections';
+        $table = 'enrol_wds_sections';
 
         // Create the object.
         $tas = new stdClass();
@@ -551,7 +551,7 @@ class workdaystudent {
         $tas->academic_unit_id = $section->Academic_Unit_ID;
         $tas->academic_period_id = $section->Academic_Period_ID;
         $tas->course_section_title = $section->Course_Section_Title;
-        $tas->course_section_abbreviated_title = $section->Course_Section_Abbreviated_Title;
+        $tas->course_section_abbrev_title = $section->Course_Section_Abbreviated_Title;
         $tas->delivery_mode = $section->Delivery_Mode;
         $tas->class_type = $section->Class_Type;
         $tas->idnumber = null;
@@ -586,7 +586,7 @@ class workdaystudent {
             return $ac;
         } else {
             // Set the table.
-            $table = 'enrol_oes_courses';
+            $table = 'enrol_wds_courses';
 
             // Update the record.
             $success = $DB->update_record($table, $ac2, false);
@@ -628,7 +628,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_courses';
+        $table = 'enrol_wds_courses';
 
         // Create the object.
         $tac = new stdClass();
@@ -771,7 +771,7 @@ class workdaystudent {
             return $as;
         } else {
             // Set the table.
-            $table = 'enrol_oes_student_enrollments';
+            $table = 'enrol_wds_student_enroll';
 
             if ($as2->lastupdate >= $as->lastupdate) {
                 // Update the record.
@@ -802,7 +802,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_student_enrollments';
+        $table = 'enrol_wds_student_enroll';
 
         // Set the parameters.
         $parms = array('section_listing_id' => $enrollment->Section_Listing_ID, 'universal_id' => $enrollment->Universal_Id);
@@ -831,7 +831,7 @@ class workdaystudent {
                       : time();
 
         // Set the table.
-        $table = 'enrol_oes_student_enrollments';
+        $table = 'enrol_wds_student_enroll';
 
         // Create the object.
         $tas = new stdClass();
@@ -964,7 +964,7 @@ class workdaystudent {
             return $au;
         } else {
             // Set the table.
-            $table = 'enrol_oes_units';
+            $table = 'enrol_wds_units';
 
             // Update the record.
             $success = $DB->update_record($table, $au2, false);
@@ -1305,7 +1305,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_units';
+        $table = 'enrol_wds_units';
 
         // Create the object.
         $tau = new stdClass();
@@ -1337,9 +1337,9 @@ class workdaystudent {
         global $DB;
 
         $sql = 'SELECT CONCAT(p.id, "_",  c.id, "_", s.id) AS uniqueid, c.course_subject_abbreviation, p.academic_period_id 
-            FROM {enrol_oes_periods} p
-                INNER JOIN {enrol_oes_sections} s ON p.academic_period_id = s.academic_period_id
-                INNER JOIN {enrol_oes_courses} c ON s.course_definition_id = c.course_definition_id
+            FROM {enrol_wds_periods} p
+                INNER JOIN {enrol_wds_sections} s ON p.academic_period_id = s.academic_period_id
+                INNER JOIN {enrol_wds_courses} c ON s.course_definition_id = c.course_definition_id
             WHERE p.start_date < UNIX_TIMESTAMP(NOW())
                 AND p.end_date > UNIX_TIMESTAMP(NOW())
                 AND p.enabled = 1
@@ -1368,7 +1368,7 @@ class workdaystudent {
 
         // Build the SQL.
         $sql = "SELECT p.academic_period_id
-                  FROM mdl_enrol_oes_periods p
+                  FROM mdl_enrol_wds_periods p
                 WHERE p.enabled = 1
                   AND ((p.start_date < UNIX_TIMESTAMP() + $fsemrange
                   AND p.end_date > UNIX_TIMESTAMP())
@@ -1393,8 +1393,8 @@ class workdaystudent {
         global $DB;
 
         $sql = 'SELECT s.*
-            FROM mdl_enrol_oes_periods p
-                INNER JOIN mdl_enrol_oes_sections s ON p.academic_period_id = s.academic_period_id
+            FROM mdl_enrol_wds_periods p
+                INNER JOIN mdl_enrol_wds_sections s ON p.academic_period_id = s.academic_period_id
             WHERE p.start_date < UNIX_TIMESTAMP(NOW())
                 AND p.end_date > UNIX_TIMESTAMP(NOW())
                 AND p.enabled = 1';
@@ -1457,8 +1457,8 @@ class workdaystudent {
         global $DB;
 
         // Build some sql to truncate the table.
-        $sql = 'TRUNCATE {enrol_oes_programs}';
-        mtrace("  Truncating enrol_oes_programs.");
+        $sql = 'TRUNCATE {enrol_wds_programs}';
+        mtrace("  Truncating enrol_wds_programs.");
 
         // Actually do it and store if we're successful or not.
         $success = $DB->execute($sql);
@@ -1468,7 +1468,7 @@ class workdaystudent {
 
         // If we successfully truncated, insert data.
         if ($success) {
-            mtrace("  Successfully truncated enrol_oes_programs.");
+            mtrace("  Successfully truncated enrol_wds_programs.");
 
             // Get the program data.
             foreach ($programs as $program) {
@@ -1476,7 +1476,7 @@ class workdaystudent {
             }
 
         } else {
-            mtrace("  Failed to truncate enrol_oes_programs.");
+            mtrace("  Failed to truncate enrol_wds_programs.");
             return $success;
         }
 
@@ -1508,7 +1508,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_programs';
+        $table = 'enrol_wds_programs';
 
         // Build the two objects to compare.
         $pgm1 = clone($pgm);
@@ -1541,7 +1541,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_programs';
+        $table = 'enrol_wds_programs';
 
         // Set the parameters.
         $parms = array('academic_unit_id' => $program->Academic_Unit_ID,
@@ -1557,7 +1557,7 @@ class workdaystudent {
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_programs';
+        $table = 'enrol_wds_programs';
 
         // Set the singular data object.
         $dataobj = array(
@@ -1600,8 +1600,8 @@ class workdaystudent {
         $s = self::get_settings();
 
         // Build some sql to truncate the table.
-        $sql = 'TRUNCATE {enrol_oes_grade_schemes}';
-        mtrace("  Truncating enrol_oes_grade_schemes.");
+        $sql = 'TRUNCATE {enrol_wds_grade_schemes}';
+        mtrace("  Truncating enrol_wds_grade_schemes.");
 
         // Actually do it and store if we're successful or not.
         $success = $DB->execute($sql);
@@ -1611,7 +1611,7 @@ class workdaystudent {
 $counter = 0;
         // If we successfully truncated, insert data.
         if ($success) {
-            mtrace("  Successfully truncated enrol_oes_grade_schemes.");
+            mtrace("  Successfully truncated enrol_wds_grade_schemes.");
 
             // Get the grading schemas.
             foreach ($gradingschemes as $gradingschema) {
@@ -1642,7 +1642,7 @@ $counter++;
             }
 
         } else {
-            mtrace("  Failed to truncate enrol_oes_grade_schemes.");
+            mtrace("  Failed to truncate enrol_wds_grade_schemes.");
             return $success;
         }
 
@@ -1658,7 +1658,7 @@ $counter++;
             : $s->campusname . ' Standard Grading Scheme';
 
         // Set the table.
-        $table = 'enrol_oes_grade_schemes';
+        $table = 'enrol_wds_grade_schemes';
 
 // TODO: Do we really need to explode and do this crap?
 
@@ -1724,14 +1724,14 @@ $counter++;
                     te.universal_id,
                     COALESCE(t.preferred_firstname, t.firstname) AS firstname,
                     COALESCE(t.preferred_lastname, t.lastname) AS lastname
-                FROM {enrol_oes_sections} sec
-                    INNER JOIN {enrol_oes_teacher_enrollments} te ON
+                FROM {enrol_wds_sections} sec
+                    INNER JOIN {enrol_wds_teacher_enroll} te ON
                         sec.section_listing_id = te.section_listing_id
-                    INNER JOIN {enrol_oes_courses} cou ON
+                    INNER JOIN {enrol_wds_courses} cou ON
                         cou.course_listing_id = sec.course_listing_id
-                    INNER JOIN {enrol_oes_periods} p ON
+                    INNER JOIN {enrol_wds_periods} p ON
                         p.academic_period_id = sec.academic_period_id
-                    INNER JOIN {enrol_oes_teachers} t ON
+                    INNER JOIN {enrol_wds_teachers} t ON
                         t.universal_id = te.universal_id
                 WHERE sec.idnumber IS NULL
                     AND sec.academic_period_id = :periodid
@@ -1850,7 +1850,7 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_units';
+        $table = 'enrol_wds_units';
 
         // Set up the conditions.
         $conditions = array('academic_unit_subtype'=>'Institution');
@@ -1932,7 +1932,7 @@ $counter++;
         $starttime = microtime(true);
 
         // Set the deleted table.
-        $dtable = 'enrol_oes_students_meta';
+        $dtable = 'enrol_wds_students_meta';
 
         // Set the deleted parms.
         $dparms = array('studentid' => $stu->id);
@@ -1952,7 +1952,7 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_students_meta';
+        $table = 'enrol_wds_students_meta';
 
         // Build the $data object.
         $data = new stdClass();
@@ -2013,7 +2013,7 @@ $counter++;
 
     public static function truncate_studentmeta() {
         global $DB;
-        $sql = "TRUNCATE {enrol_oes_students_meta}";
+        $sql = "TRUNCATE {enrol_wds_students_meta}";
         $truncated = $DB->execute($sql);
         return $truncated;
     }
@@ -2061,7 +2061,7 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_sport';
+        $table = 'enrol_wds_sport';
 
         // Set the parms.
         $parms = array('code' => $team->Athletic_Team_ID);
@@ -2076,7 +2076,7 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_sport';
+        $table = 'enrol_wds_sport';
 
         // Build the new obj.
         $sport = new stdClass();
@@ -2104,7 +2104,7 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_sport';
+        $table = 'enrol_wds_sport';
 
         // Make sure we're only updating mismatches.
         if ($sport->code == $team->Athletic_Team_ID
@@ -2302,7 +2302,7 @@ $counter++;
 
         // Set up the SQL to look for the student in the LMS.
         $sql = 'SELECT *
-                FROM {enrol_oes_students} stu
+                FROM {enrol_wds_students} stu
                 WHERE stu.universal_id = "' . $student->Universal_Id . '"
                 OR stu.email = "' . $email . '"';
 
@@ -2345,7 +2345,7 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_students';
+        $table = 'enrol_wds_students';
 
         $esuffix = $s->campusname . '_Email';
         if (isset($student->$esuffix)) {
@@ -2417,7 +2417,7 @@ $counter++;
         $lid = isset($student->$lidsuffix) ? $student->$lidsuffix : null;
 
         // Set the table;
-        $table = 'enrol_oes_students';
+        $table = 'enrol_wds_students';
 
         // Build the object.
         $data = new stdClass();
@@ -2516,7 +2516,7 @@ $counter++;
         }
 
         $sql = 'SELECT *
-                FROM {enrol_oes_teachers} tea
+                FROM {enrol_wds_teachers} tea
                 WHERE tea.universal_id = "' . $teacher->Instructor_ID . '"
                 OR tea.email = "' . $teacher->Instructor_Email . '"';
 
@@ -2554,7 +2554,7 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_teachers';
+        $table = 'enrol_wds_teachers';
 
         // Build out the email.
         $email = $teacher->Instructor_Email;
@@ -2612,7 +2612,7 @@ $counter++;
         }
 
         // Set the table;
-        $table = 'enrol_oes_teachers';
+        $table = 'enrol_wds_teachers';
 
         // Build the object.
         $data = new stdClass();
@@ -2641,13 +2641,13 @@ $counter++;
         global $DB;
 
         // Set the table.
-        $table = 'enrol_oes_teacher_enrollments';
+        $table = 'enrol_wds_teacher_enroll';
 
         // We do not have an instructor or a role.
         if (is_null($universalid) && is_null($role)) {
 
             // Build the SQL to grab existing instructors.
-            $usql = 'SELECT * FROM {enrol_oes_teacher_enrollments} e
+            $usql = 'SELECT * FROM {enrol_wds_teacher_enroll} e
                     WHERE e.section_listing_id = "' . $sectionid . '"
                         AND (e.status = "enroll" OR e.status = "enrolled")
                         AND (e.role = "teacher" OR e.role = "primary")';
@@ -2665,7 +2665,7 @@ $counter++;
                 foreach ($uenrs as $uenr) {
 
                     // Build the sql to update their records.
-                    $sql = 'UPDATE {enrol_oes_teacher_enrollments} e
+                    $sql = 'UPDATE {enrol_wds_teacher_enroll} e
                                 SET e.status = "unenroll",
                                     e.prevstatus = "' . $uenr->status . '",
                                     e.role = "' . $uenr->role . '",
