@@ -76,6 +76,9 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process students.
         $cronstudents = wdscronhelper::cronstudents();
 
+        // Process student enrollments.
+        $cronstuenroll = wdscronhelper::cronstuenroll();
+
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);
 
