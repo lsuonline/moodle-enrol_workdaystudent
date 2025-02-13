@@ -899,6 +899,200 @@ class workdaystudent {
         return $as;
     }
 
+    public static function process_section_schedule(object $section,
+        string $timezone = 'America/Chicago'): array {
+
+        // Grab the schedule.
+        $schedule = $section->Section_Components;
+
+        // Split the string into days and time.
+        [$dayspart, $timepart] = explode('|', $schedule);
+
+        // Trim the whitespace.
+        $dayspart = trim($dayspart);
+        $timepart = trim($timepart);
+
+        // Split the days into an array.
+        $days = explode(' ', $dayspart);
+
+        // Check if we have both start and end time in the time part.
+        $times = explode('-', $timepart);
+
+        // Trim the times.
+        $times = array_map('trim', $times);
+
+        // Ensure we have exactly 2 times (start and end).
+        if (count($times) < 2) {
+
+            // If we don't have both start and end times, log the issue and exit.
+            self::dtrace("Invalid time format: $timepart");
+            return [];
+        }
+
+        // Split the time range into start and end times.
+        [$starttime, $endtime] = $times;
+
+        // Map full day names to short names as per my whimsy.
+        $dayshortnames = [
+            'Monday' => 'M', 'Tuesday' => 'Tu', 'Wednesday' => 'W', 'Thursday' => 'Th',
+            'Friday' => 'F', 'Saturday' => 'Sa', 'Sunday' => 'Su'
+        ];
+
+        // Utilize an anonymous function to map the day to its shortened counterpart.
+        $shortdays = array_map(fn($day) => $dayshortnames[$day] ?? $day, $days);
+
+        // Set the timezone.
+        $tz = new DateTimeZone($timezone);
+
+        // Build an array to hold this stuff.
+        $schedule_items = [];
+
+        // Loop through the days and times, ensuring each day has a corresponding time.
+        foreach ($days as $index => $day) {
+
+            // If there are fewer times than days, we should repeat the times or handle the mismatch.
+            if (empty($starttime) || empty($endtime)) {
+                // Skip days with invalid time or log an error.
+                mtrace("Invalid time for day: $day");
+                continue;
+            }
+
+            // Convert to DateTime objects with the timezone.
+            $startdatetime = DateTime::createFromFormat('g:i A', $starttime, $tz);
+            $enddatetime = DateTime::createFromFormat('g:i A', $endtime, $tz);
+
+            // Check if the DateTime creation was successful.
+            if ($startdatetime === false || $enddatetime === false) {
+                // Handle the error (skip and log it).
+                mtrace("Failed to parse time: Start time - $starttime, End time - $endtime");
+                continue;
+            }
+
+            // Create an object for each day with start or end times.
+            $schedule_items[] = (object)[
+                'section_listing_id' => $section->Section_Listing_ID, // Add section_listing_id to each object
+                'day' => $day,
+                'short_day' => $shortdays[$index] ?? null,
+                'start_time' => $startdatetime->setTimezone($tz)->format('g:i A T'),
+                'end_time' => $enddatetime->setTimezone($tz)->format('g:i A T')
+            ];
+        }
+
+        // Return the array of schedule items.
+        return $schedule_items;
+    }
+
+    public static function insert_update_section_schedule($schedules) {
+        $sss = array();
+        foreach ($schedules as $schedule) {
+            // Check to see if we have a matching section.
+            $ss = self::check_section_schedule($schedule);
+
+            // We do! We do have a matching section.
+            if (isset($ss->id)) {
+                // Update it.
+                $sss[] = self::update_section_schedule($schedule, $ss);
+            } else {
+                // Insert it.
+                $sss[] = self::insert_section_schedule($schedule);
+            }
+        }
+        return $sss;
+    }
+
+    public static function check_section_schedule($schedule) {
+        global $DB;
+
+        // Set the table.
+        $table = 'enrol_wds_section_meta';
+
+        // Set the parameters.
+        $parms = array(
+            'section_listing_id' => $schedule->section_listing_id,
+            'day' => $schedule->day
+        );
+
+        // Get the academic unit record.
+        $ss = $DB->get_record($table, $parms);
+
+        return $ss;
+    }
+
+    public static function insert_section_schedule($schedule) {
+        global $DB;
+
+        // Set the table.
+        $table = 'enrol_wds_section_meta';
+
+        $ss = $DB->insert_record($table, $schedule);
+        self::dtrace("Inserted $schedule->day $schedule->start_time - $schedule->end_time " .
+            "for section_listing_id: $schedule->section_listing_id.");
+
+        return $ss;
+    }
+
+    public static function grab_section_schedule($universalid = null) {
+        global $DB;
+
+        // We're looking for a single student's schedule for the current terms.
+        if (!is_null($universalid)) {
+            $user = "INNER JOIN {enrol_wds_student_enroll} ste
+                         ON sec.section_listing_id = ste.section_listing_id
+                     WHERE ste.universal_id = '$universalid'
+                         AND ste.registration_status = 'Registered'
+                         AND ap.start_date < UNIX_TIMESTAMP()
+                         AND ap.end_date > UNIX_TIMESTAMP()";
+        // We're looking for all course schedules.
+        } else {
+            $user = "WHERE ap.start_date < UNIX_TIMESTAMP()
+                         AND ap.end_date > UNIX_TIMESTAMP()";
+        }
+
+        // TODO: Change this to use the $USER->id once we populate students.
+        // TODO: Link to visible moodle courses, otherwise let them know they're hidden.
+        // TODO: Build a WDS block for the dashboard featuring the above and move this functionality there.
+        // Build out the sql to grab the data for everyone.
+        $sql = 'SELECT
+            CONCAT(
+                ap.period_year,
+                " ",
+                ap.period_type,
+                " ",
+                cou.course_subject_abbreviation,
+                " ",
+                cou.course_number,
+                " - ",
+                sec.section_number
+            ) AS course,
+            GROUP_CONCAT(
+                sm.short_day ORDER BY FIELD(
+                    sm.short_day,
+                    \'M\',
+                    \'Tu\',
+                    \'W\',
+                    \'Th\',
+                    \'F\'
+                ) SEPARATOR \', \'
+            ) AS day,
+            sm.start_time,
+            sm.end_time 
+            FROM {enrol_wds_courses} cou
+                INNER JOIN {enrol_wds_sections} sec
+                    ON cou.course_listing_id = sec.course_listing_id
+                INNER JOIN {enrol_wds_section_meta} sm
+                    ON sm.section_listing_id = sec.section_listing_id
+                INNER JOIN {enrol_wds_periods} ap
+                    ON ap.academic_period_id = sec.academic_period_id
+                ' . $user . '
+            GROUP BY sec.section_listing_id
+            ORDER BY sm.id';
+
+        // Grab the data.
+        $schedule = $DB->get_records_sql($sql);
+
+        return $schedule;
+    }
+
     public static function check_shell($shell) {
         global $DB;
     }
@@ -3136,6 +3330,12 @@ class wdscronhelper {
 
                 // Insert or update this section.
                 $sec = workdaystudent::insert_update_section($section);
+
+                // If we have section components, add / update the schedule data.
+                if (isset($section->Section_Components)) {
+                    $schedule = workdaystudent::process_section_schedule($section);
+                    $sectionschedule = workdaystudent::insert_update_section_schedule($schedule);
+                }
 
                 // If we do not have an instructor, let us know.
                 if (!isset($section->Instructor_Info)) {
