@@ -40,6 +40,7 @@ $string['workdaystudent:emails'] = 'Administrative Contacts';
 
 // The tasks.
 $string['workdaystudent_full_enroll'] = 'Workday Student Enrollment';
+$string['workdaystudent_quick_enroll'] = 'Quicker Workday Student Enrollment';
 
 // Authentication Settings.
 $string['workdaystudent_username'] = 'Username';

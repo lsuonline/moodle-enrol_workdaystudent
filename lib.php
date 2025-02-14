@@ -38,6 +38,64 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
     }
 
     /**
+     * Fetches the moodle "scheduled task" object
+     *
+     * @return \core\task\scheduled_task
+     */
+    private function get_quick_task() {
+        $task = \core\task\manager::get_quick_task('\enrol_workdaystudent\task\workdaystudent_quick_enroll');
+
+        return $task;
+    }
+
+    /**
+     * Master method for kicking off quick Workday Student enrollment.
+     *
+     * @return boolean
+     */
+    public static function run_workdaystudent_quick_enroll($courseid=null) {
+        global $CFG;
+
+        // Fetch the main class.
+        require_once('classes/workdaystudent.php');
+
+        // Set the start time.
+        $starttime = microtime(true);
+
+        mtrace("Starting Moodle Student enrollments.");
+
+        // Process the academic units.
+        $cronunits = wdscronhelper::cronunits();
+
+        // Process academic periods.
+        $cronperiods = wdscronhelper::cronperiods();
+
+        // Proces programs of study.
+        $cronprograms = wdscronhelper::cronprograms();
+
+        // Process courses.
+        $croncourses = wdscronhelper::croncourses();
+
+        // Process courses.
+        $cronsections = wdscronhelper::cronsections();
+
+        // $cronshells = wdscronhelper::cronshells();
+
+        // Process grading schemes.
+        $crongradingschemes = wdscronhelper::crongradeschemes();
+
+        // Process student enrollments.
+        $cronstuenroll = wdscronhelper::cronstuenroll();
+
+        $endtime = microtime(true);
+        $elapsedtime = round($endtime - $starttime, 2);
+
+        mtrace("Finished processing Moodle Student enrollments in $elapsedtime seconds.");
+    }
+
+
+
+    /**
      * Master method for kicking off Workday Student enrollment
      *
      * @return boolean

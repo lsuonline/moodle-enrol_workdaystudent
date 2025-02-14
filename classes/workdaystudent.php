@@ -990,8 +990,9 @@ class workdaystudent {
 
             // We do! We do have a matching section.
             if (isset($ss->id)) {
+                // TODO: Build out updating.
                 // Update it.
-                $sss[] = self::update_section_schedule($schedule, $ss);
+                // $sss[] = self::update_section_schedule($schedule, $ss);
             } else {
                 // Insert it.
                 $sss[] = self::insert_section_schedule($schedule);
