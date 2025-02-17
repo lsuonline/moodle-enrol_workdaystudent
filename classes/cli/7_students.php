@@ -53,7 +53,7 @@ $forcedperiod->academic_period_id = "LSUAM_SPRING_2024";
 $studentcounter = 0;
 
 // Truncate metadata because it's WAY faster than deleting rows that don't exist and updating existing data.
-$truncated = workdaystudent::truncate_studentmeta();
+// $truncated = workdaystudent::truncate_studentmeta();
 
 // Loop through the periods.
 foreach ($periods as $period) {
@@ -89,6 +89,8 @@ foreach ($periods as $period) {
 
         // Loop through the students and insert / update their data.
         foreach ($students as $student) {
+var_dump($student);
+die();
 
             // Build out the email address suffix.
             $esuffix = $s->campusname . '_Email';

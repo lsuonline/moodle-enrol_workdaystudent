@@ -15,16 +15,31 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package    enrol_workdaystudent
- * @copyright  2023 Onwards LSU Online & Continuing Education
- * @author     Robert Russo
+ * @package    ues_reprocess
+ * @copyright  2024 onwards LSUOnline & Continuing Education
+ * @copyright  2024 onwards Robert Russo
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+// Make sure this can only run via CLI.
+define('CLI_SCRIPT', true);
 
-$plugin->component = 'enrol_workdaystudent';
-$plugin->version = 2025021700;
-$plugin->requires = 2020010100;
-$plugin->maturity = MATURITY_BETA;
-$plugin->release = '0.2-Puritanical-Penguin';
+// Include the main Moodle config.
+require_once(__DIR__ . '/../../../../config.php');
+
+// Include the Workday Student helper class.
+require_once(__DIR__ . '/../workdaystudent.php');
+
+$mupdates = workdaystudent::get_potential_muser_updates();
+var_dump(count($mupdates));
+
+$nusers = workdaystudent::get_potential_new_musers();
+var_dump(count($nusers));
+die();
+
+
+if (is_array($musers)) {
+    foreach ($musers as $muser) {
+var_dump($muser);
+    }
+}

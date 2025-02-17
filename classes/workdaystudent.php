@@ -2939,6 +2939,102 @@ $counter++;
         }
     }
 
+    public static function get_potential_new_musers() {
+        global $DB;
+
+        // Users that don't have a Moodle equivalent created or mapped.
+        $sql = "SELECT * FROM {enrol_wds_students} stu
+                WHERE stu.userid IS NULL";
+
+        $nusers = $DB->get_records_sql($sql);
+
+        return $nusers;
+    }
+
+    public static function mass_muser_updates() {
+        global $DB;
+        $sql = "UPDATE {enrol_wds_students} stu
+            INNER JOIN {user} u on u.id = stu.userid
+            SET u.idnumber = stu.universal_id,
+                u.email = stu.email,
+                u.username = stu.username,
+                u.firstname = stu.preferred_firstname,
+                u.lastname = stu.preferred_lastname,
+                u.middlename = stu.middlename,
+                u.timemodified = stu.lastupdate
+            WHERE stu.userid IS NOT NULL
+                AND u.deleted = 0
+                AND u.suspended = 0
+                AND (stu.universal_id <> u.idnumber
+                    OR stu.email <> u.email
+                    OR stu.username <> u.username
+                    OR stu.preferred_firstname <> u.firstname
+                    OR stu.preferred_lastname <> u.lastname
+                    OR stu.middlename <> u.middlename)";
+
+        $mupdates = $DB->execute($sql);
+
+        return $mupdates;
+    }
+
+    public static function get_potential_muser_updates() {
+        global $DB;
+
+        $daysprior = 1;
+
+        $date = time() - ($daysprior * 86400);
+
+        $sql = "SELECT * FROM {enrol_wds_students} stu
+                    INNER JOIN {user} u on u.id = stu.userid
+                WHERE stu.userid IS NOT NULL
+                    AND stu.lastupdate > $date";
+
+        $mupdates = $DB->get_records_sql($sql);
+
+        return $mupdates;
+    }
+
+    public static function create_update_muser($student, $courseid=null) {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+        require_once($CFG->dirroot . '/user/lib.php');
+        require_once($CFG->libdir . '/moodlelib.php');
+
+        // Grab the table for future use.
+        $table = 'user';
+
+        // Build the auth methods and choose the default one.
+        $auth = explode(',', $CFG->auth);
+        $auth = reset($auth);
+
+var_dump($auth);
+
+        // TODO: deal with this somehow.
+        $auth = 'manual';
+
+        // Set up the user object.
+        $user               = new stdClass();
+        $user->username     = $student->username;
+        $user->idnumber     = $student->universal_id;
+        $user->email        = $student->email;
+        $user->firstname    = $student->firstname === $student->preferred_firstname ?
+            $student->firstname :
+            $student->preferred_firstname;
+        $user->middlename   = isset($student->middlename) ? $student->middlename : null;
+        $user->lastname     = $student->lastname === $student->preferred_lastname ?
+            $student->lastname :
+            $student->preferred_lastname;
+        $user->lang         = $CFG->lang;
+        $user->auth         = $auth;
+        $user->confirmed    = 1;
+        $user->timemodified = $student->lastupdate;
+        $user->mnethostid   = $CFG->mnet_localhost_id;
+
+var_dump($user);
+die();
+
+    }
+
     /**
      * Finds similar objects.
      *
