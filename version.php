@@ -24,7 +24,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_workdaystudent';
-$plugin->version = 2025021700;
+$plugin->version = 2025021701;
 $plugin->requires = 2020010100;
 $plugin->maturity = MATURITY_BETA;
 $plugin->release = '0.2-Puritanical-Penguin';
