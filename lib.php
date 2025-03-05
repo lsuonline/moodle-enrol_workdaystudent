@@ -76,16 +76,20 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process courses.
         $croncourses = wdscronhelper::croncourses();
 
-        // Process courses.
+        // Process sections.
         $cronsections = wdscronhelper::cronsections();
 
-        // $cronshells = wdscronhelper::cronshells();
+        // Create course shells.
+        $cronshells = wdscronhelper::cronshells();
 
         // Process grading schemes.
         $crongradingschemes = wdscronhelper::crongradeschemes();
 
-        // Process student enrollments.
+        // Process student enrollments. TODO: Fetch missing students.
         $cronstuenroll = wdscronhelper::cronstuenroll();
+
+        // Create and update moodle students.
+        $cronstucreate = wdscronhelper::cronmusers();
 
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);
@@ -126,7 +130,8 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process courses.
         $cronsections = wdscronhelper::cronsections();
 
-        // $cronshells = wdscronhelper::cronshells();
+        // Create Moodle course shells.
+        $cronshells = wdscronhelper::cronshells();
 
         // Process grading schemes.
         $crongradingschemes = wdscronhelper::crongradeschemes();
@@ -134,8 +139,11 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process students.
         $cronstudents = wdscronhelper::cronstudents();
 
-        // Process student enrollments.
+        // Process student enrollments. TODO: Fetch missing students.
         $cronstuenroll = wdscronhelper::cronstuenroll();
+
+        // Create and update moodle students.
+        $cronstucreate = wdscronhelper::cronmusers();
 
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);
