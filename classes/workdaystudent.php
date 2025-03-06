@@ -3449,7 +3449,7 @@ $counter++;
         // Build the SQL to retreive the required data to build shells for primary instructors.
         $sql = "SELECT
             GROUP_CONCAT(
-                CONCAT(sec.course_definition_id,'_',sec.section_number) ORDER BY sec.section_listing_id ASC
+                CONCAT(sec.course_definition_id,'_',tea.universal_id) ORDER BY sec.section_listing_id ASC
             ) AS coursesections,
             per.period_year, 
             per.period_type,
@@ -3459,6 +3459,7 @@ $counter++;
             cou.course_subject,
             cou.course_abbreviated_title,
             cou.course_number,
+            cou.academic_level,
             sec.class_type,
             tea.universal_id,
             tea.username,
@@ -3596,9 +3597,28 @@ die();
         }
     }
 
+    public static function get_numeric_course_value($mshell) {
+
+    // Extract the numeric portion from the start of the string.
+    preg_match('/^\d+/', $mshell->course_number, $matches);
+
+    // If we have a match, set it in the $mshell object..
+    if (!empty($matches)) {
+        $numerical_value = (int)$matches[0];
+
+        // Return the numerical value.
+        return $numerical_value;
+    }
+
+    // Return nothing.
+    return null;
+}
+
+
     public static function create_moodle_shell($mshell) {
         global $CFG, $DB;
 
+/*
 // Delete all test courses!
 require_once($CFG->libdir . '/moodlelib.php');
 $csql = "SELECT * FROM mdl_course WHERE fullname LIKE 'WDS - %'";
@@ -3608,7 +3628,7 @@ foreach ($courses as $course) {
     delete_course($course);
 }
 die();
-
+*/
 
         // Get some moodle files as needed.
         require_once($CFG->dirroot . '/course/lib.php');
@@ -4692,9 +4712,19 @@ class wdscronhelper {
 
             if (!empty($mshells)) {
                 foreach ($mshells as $mshell) {
+
                     // Generate the course name. 
                     $mshell->fullname = workdaystudent::process_shell_name($s, $mshell);
-                    mtrace("  Creating $mshell->fullname.");
+                    $mshell->numerical_value = workdaystudent::get_numeric_course_value($mshell);
+
+                    // TODO: Short circuit this for now, get user prefs or CFG based on teacher universal id.
+                    if ($mshell->numerical_value > 7999) {
+                        mtrace("$mshell->fullname not created due to $mshell->numerical_value > 7999.");
+                        continue;
+                    } else {
+                        mtrace("  Creating $mshell->fullname.");
+                    }
+
                     // Create the shell.
                     $courseshell = workdaystudent::create_moodle_shell($mshell);
                 }
