@@ -65,31 +65,34 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         mtrace("Starting Moodle Student enrollments.");
 
         // Process the academic units.
-        $cronunits = wdscronhelper::cronunits();
+        // $cronunits = wdscronhelper::cronunits();
 
         // Process academic periods.
-        $cronperiods = wdscronhelper::cronperiods();
+        // $cronperiods = wdscronhelper::cronperiods();
 
         // Proces programs of study.
-        $cronprograms = wdscronhelper::cronprograms();
+        // $cronprograms = wdscronhelper::cronprograms();
 
         // Process courses.
-        $croncourses = wdscronhelper::croncourses();
+        // $croncourses = wdscronhelper::croncourses();
 
         // Process sections.
-        $cronsections = wdscronhelper::cronsections();
+        // $cronsections = wdscronhelper::cronsections();
 
         // Process grading schemes.
-        $crongradingschemes = wdscronhelper::crongradeschemes();
+        // $crongradingschemes = wdscronhelper::crongradeschemes();
 
         // Process student enrollments. TODO: Fetch missing student datas.
-        $cronstuenroll = wdscronhelper::cronstuenroll();
+        // $cronstuenroll = wdscronhelper::cronstuenroll();
 
         // Create and update moodle users.
         $cronstucreate = wdscronhelper::cronmusers();
 
         // Create course shells.
         $cronshells = wdscronhelper::cronmcourses();
+
+        // Enroll the students into courses and groups.
+        $cronenrollments = wdscronhelper::cronmenrolls();
 
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);
@@ -143,7 +146,10 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         $cronstucreate = wdscronhelper::cronmusers();
 
         // Create course shells.
-        // $cronshells = wdscronhelper::cronmcourses();
+        $cronshells = wdscronhelper::cronmcourses();
+
+        // Enroll the students into courses and groups.
+        $cronenrollments = wdscronhelper::cronmenrolls();
 
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);

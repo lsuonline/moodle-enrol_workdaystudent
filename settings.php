@@ -173,6 +173,47 @@ if ($ADMIN->fulltree) {
         )
     );
 
+    // Add the course number creation threshold.
+    $settings->add(
+        new admin_setting_configtext(
+            'enrol_workdaystudent/numberthreshold',
+            get_string('workdaystudent:numberthreshold', 'enrol_workdaystudent'),
+            get_string('workdaystudent:numberthreshold_desc', 'enrol_workdaystudent'),
+            9000,
+            PARAM_INT
+        )
+    );
+
+    // Course visibility defaults.
+    $settings->add(
+        new admin_setting_configcheckbox(
+            'enrol_workdaystudent/visible',
+            get_string('workdaystudent:visible', 'enrol_workdaystudent'),
+            get_string('workdaystudent:visible_desc', 'enrol_workdaystudent'),
+            0
+        )
+    );
+
+    // Course grouping defaults.
+    $settings->add(
+        new admin_setting_configcheckbox(
+            'enrol_workdaystudent/course_grouping',
+            get_string('workdaystudent:course_grouping', 'enrol_workdaystudent'),
+            get_string('workdaystudent:course_grouping_desc', 'enrol_workdaystudent'),
+            1
+        )
+    );
+
+    // Course unenrollment/suspension defaults.
+    $settings->add(
+        new admin_setting_configcheckbox(
+            'enrol_workdaystudent/suspend',
+            get_string('workdaystudent:suspend', 'enrol_workdaystudent'),
+            get_string('workdaystudent:suspend_desc', 'enrol_workdaystudent'),
+            0
+        )
+    );
+
     // Add a heading.
     $settings->add(
         new admin_setting_heading(
