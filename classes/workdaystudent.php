@@ -80,7 +80,7 @@ class workdaystudent {
         $students = self::get_data($s);
 
         if (!is_array($students) || empty($students)) {
-            mtrace("$periodid contains no students, this is probably a sub-semester.");
+            self::dtrace("$periodid contains no students, this is probably a sub-semester.");
             return false;
         }
 
@@ -1646,7 +1646,7 @@ class workdaystudent {
 
         // Build some sql to truncate the table.
         $sql = 'TRUNCATE {enrol_wds_programs}';
-        mtrace("  Truncating enrol_wds_programs.");
+        self::dtrace("  Truncating enrol_wds_programs.");
 
         // Actually do it and store if we're successful or not.
         $success = $DB->execute($sql);
@@ -1656,7 +1656,7 @@ class workdaystudent {
 
         // If we successfully truncated, insert data.
         if ($success) {
-            mtrace("  Successfully truncated enrol_wds_programs.");
+            self::dtrace("  Successfully truncated enrol_wds_programs.");
 
             // Get the program data.
             foreach ($programs as $program) {
@@ -1789,17 +1789,20 @@ class workdaystudent {
 
         // Build some sql to truncate the table.
         $sql = 'TRUNCATE {enrol_wds_grade_schemes}';
-        mtrace("  Truncating enrol_wds_grade_schemes.");
+        self::dtrace("  Truncating enrol_wds_grade_schemes.");
 
         // Actually do it and store if we're successful or not.
         $success = $DB->execute($sql);
 
         // Build the $gs array for future use.
         $gs = array();
-$counter = 0;
+
+        // Set the counter.
+        $counter = 0;
+
         // If we successfully truncated, insert data.
         if ($success) {
-            mtrace("  Successfully truncated enrol_wds_grade_schemes.");
+            self::dtrace("  Successfully truncated enrol_wds_grade_schemes.");
 
             // Get the grading schemas.
             foreach ($gradingschemes as $gradingschema) {
@@ -1821,7 +1824,9 @@ $counter = 0;
 
                     // Add the grading scheme id into the child array.
                     $gradingscheme->Student_Grading_Scheme_ID = $gsid;
-$counter++;
+
+                    // Increment the counter.
+                    $counter++;
                     self::dtrace("      -($counter) Processing $gradingscheme->Grading_Basis - $gradingscheme->Student_Grade_Display.");
 
                     // Insert each grading scheme and add it to the $gs array.
@@ -2360,7 +2365,7 @@ $counter++;
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
         // Debug this connection.
-        if ($CFG->debugdisplay == 1) {
+        if ($CFG->debugdisplay === 1) {
 // TODO: readd            curl_setopt($ch, CURLOPT_VERBOSE, true);
         }
 
@@ -3449,7 +3454,19 @@ $counter++;
     }
 
     public static function get_potential_new_mshells($s, $period) {
-        global $DB;
+        global $CFG, $DB;
+
+/*
+// Delete all test courses!
+require_once($CFG->libdir . '/moodlelib.php');
+$csql = "SELECT * FROM mdl_course WHERE fullname LIKE 'WDS - %'";
+$courses = $DB->get_records_sql($csql);
+foreach ($courses as $course) {
+    // Delete the course using Moodle's course deletion API
+    delete_course($course);
+}
+die();
+*/
 
         // Do we want our shells built with common sections merged per teacher?
         if ($s->course_grouping == 1) {
@@ -3572,7 +3589,7 @@ $counter++;
                 ['courseid' => $course->id, 'name' => $groupname], 'id');
 
             if ($existinggroup) {
-                self:dtrace("  Group '$groupname' already exists in $course->fullname. Skipping.");
+                self::dtrace("  Group '$groupname' already exists in $course->fullname. Skipping.");
                 continue;
             }
 
@@ -3588,7 +3605,7 @@ $counter++;
             $groupid = groups_create_group($group);
 
             if ($groupid) {
-                self:dtrace("  Group created with ID: $groupid.");
+                self::dtrace("  Group created with ID: $groupid.");
                 continue;
             } else {
                 mtrace("  Failed to create group: $group->name.");
@@ -3668,7 +3685,7 @@ die();
 
         // If it exists create some groups.
         if (isset($exists->id)) {
-            self:dtrace("  $course->fullname already exists. Updating idb idnumber.");
+            self::dtrace("  $course->fullname already exists. Updating idb idnumber.");
             $groups = self::create_moodle_group($exists, $mshell);
         }
 
@@ -3687,7 +3704,7 @@ die();
 
                 // Update the record.
                 $updated = $DB->update_record($sectiontable, $parms);
-                self:dtrace("   Course idumber / moodle_status updated in $sectiontable for id: $sectionid.");
+                self::dtrace("   Course idumber / moodle_status updated in $sectiontable for id: $sectionid.");
             }
 
             return $exists;
@@ -3707,7 +3724,7 @@ die();
             // Build out the groups.
             $groups = self::create_moodle_group($moodlecourse, $mshell);
 
-            self:dtrace("  Created $course->fullname. Updating idb idnumber.");
+            self::dtrace("  Created $course->fullname. Updating idb idnumber.");
             $sectiontable = 'enrol_wds_sections';
             $sectionids = explode(",", $mshell->sectionids);
             foreach ($sectionids as $sectionid) {
@@ -3772,7 +3789,7 @@ die();
                 }
             }
         } else {
-            self:dtrace("We do not have a matching $mshell->course_subject_abbreviation category. Create it.");
+            self::dtrace("We do not have a matching $mshell->course_subject_abbreviation category. Create it.");
 
             // Moodle wants an array for the new category.
             $categorydata = [
@@ -3846,8 +3863,12 @@ die();
 
     public static function dtrace($message, $indent = null) {
         global $CFG;
+
+        // Set the indenter.
         $indent = !is_null($indent) ? '' : $indent;
-        if ($CFG->debugdisplay == 1) {
+
+        // If debugdisplay is on.
+        if ($CFG->debugdisplay === 1) {
             $mtrace = mtrace($message);
             return $mtrace;
         } else {
@@ -3964,7 +3985,8 @@ die();
             WHERE sec.academic_period_id = '$period->academic_period_id'
                 AND sec.idnumber IS NOT NULL
                 AND sec.controls_grading = 1
-                AND stuenr.status IN ('enroll', 'unenroll')
+#// TODO: REMOVE Completed.
+                AND stuenr.status IN ('Completed', 'enroll', 'unenroll')
                 $reprocesssection
             ORDER BY sec.section_listing_id ASC";
 
@@ -4018,7 +4040,7 @@ class wdscronhelper {
         // Set the end time for the units processing.
         $unitspend = microtime(true);
 
-        if ($CFG->debugdisplay == 1) {
+        if ($CFG->debugdisplay === 1) {
             mtrace(" Processed $numunits units in $unitselapsed seconds.");
         } else {
             mtrace("\n Processed $numunits units in $unitselapsed seconds.");
@@ -4095,7 +4117,7 @@ class wdscronhelper {
                 }
             }
 
-            if ($CFG->debugdisplay == 1) {
+            if ($CFG->debugdisplay === 1) {
                 mtrace("  Finished processing $numperiods periods for " .
                     "$unit->academic_unit_id: $unit->academic_unit.");
             } else {
@@ -4148,9 +4170,9 @@ class wdscronhelper {
             // Get a program count.
             $pgmcount = count($pgms);
 
-            mtrace("    Took $ugstime seconds to insert or update $pgmcount programs of study.");
+            mtrace("\n    Took $ugstime seconds to insert or update $pgmcount programs of study.");
         } else {
-            mtrace("    Updating $numgrabbed programs of study failed.");
+            mtrace("\n    Updating $numgrabbed programs of study failed.");
         }
 
         mtrace("  Took $uttime seconds to complete the fetch and update $pgmcount programs.");
@@ -4220,7 +4242,7 @@ class wdscronhelper {
         // Set the time it took to run the entire process.
         $uttime = round(microtime(true) - $timestarted, 3);
 
-        mtrace("    Took $ugstime seconds to insert or update $numgrabbed courses.");
+        mtrace("\n    Took $ugstime seconds to insert or update $numgrabbed courses.");
         mtrace("  Took $uttime seconds to complete the fetch and update $numgrabbed courses.");
 
         return $icourses;
@@ -4421,7 +4443,7 @@ class wdscronhelper {
             $gscount = count($gs);
 
             // Log it.
-            mtrace("    It took $ugstime seconds to fetch and insert $gscount " .
+            mtrace("\n    It took $ugstime seconds to fetch and insert $gscount " .
                 "records in $numgrabbed updated grading schemes.");
             mtrace("  Processing of grading schems is complete.");
 
@@ -4527,7 +4549,7 @@ class wdscronhelper {
                             "Missing Email";
 
                         // Log that something vital was missing.
-                        mtrace("\nMissing either UID: $uid or email: " . 
+                        mtrace("\nERROR: Missing either UID: $uid or email: " . 
                             "$email - $student->First_Name $student->Last_Name.");
 
                         continue;
@@ -4783,6 +4805,8 @@ class wdscronhelper {
         // Get settings.
         $s = workdaystudent::get_settings();
 
+        $starttime = microtime(true);
+
         // Get the current periods.
         $periods = workdaystudent::get_current_periods($s);
         $periodcount = count($periods);
@@ -4798,6 +4822,9 @@ class wdscronhelper {
             $mshellcount = count($mshells);
             mtrace(" Creating $mshellcount courses for $period->academic_period_id.");
 
+            // Get some counts.
+            $createdcount = 0;
+            $skippedcount = 0;
             if (!empty($mshells)) {
                 foreach ($mshells as $mshell) {
 
@@ -4807,16 +4834,23 @@ class wdscronhelper {
 
                     // TODO: Short circuit this for now, get user prefs or CFG based on teacher universal id.
                     if ($mshell->numerical_value >= $threshold) {
-                        mtrace("$mshell->fullname not created due to $mshell->numerical_value > $threshold.");
+                            $skippedcount++;
+			    workdaystudent::dtrace("$mshell->fullname" .
+                                " not created due to $mshell->numerical_value > $threshold.");
                         continue;
                     } else {
-                        mtrace("  Creating $mshell->fullname.");
-                    }
+                            $createdcount++;
+			    workdaystudent::dtrace("  Creating $mshell->fullname.");
 
-                    // Create the shell.
-                    $courseshell = workdaystudent::create_moodle_shell($mshell);
+                            // Create the shell.
+                            $courseshell = workdaystudent::create_moodle_shell($mshell);
+                    }
                 }
             }
+
+            $endtime = ROUND(microtime(true) - $starttime, 2);
+            mtrace(" Created $createdcount / $mshellcount courses for " .
+                "$period->academic_period_id in $endtime seconds.");
         }
     }
 
@@ -4857,6 +4891,7 @@ class enrol_workdaystudent extends enrol_plugin {
     public static function wds_bulk_enrollments($enrollments) {
         global $CFG, $DB;
 
+        // Set this up for timing.
         $starttime = microtime(true);
 
         // We need this to mess with groups.
@@ -4954,7 +4989,10 @@ class enrol_workdaystudent extends enrol_plugin {
             $groupid = isset($group->id) ? $group->id : $newgroupid;
 
             // Enrollment follows.
-            if ($enrollment->moodle_enrollment_status == 'enroll') {
+            // TODO: Go back to just enroll.
+            // if ($enrollment->moodle_enrollment_status == 'enroll') {
+            if ($enrollment->moodle_enrollment_status == 'enroll' ||
+                $enrollment->moodle_enrollment_status == 'Completed') {
 
                 // If we don't have any enrollments for this course, set it to 0.
                 if (!isset($enrollmentcounts[$courseid])) {
@@ -5046,6 +5084,11 @@ class enrol_workdaystudent extends enrol_plugin {
             $unenrolls = $unenrollmentcounts[$coursed] ?? 0;
             mtrace("Course $coursed had $enrolls enrollments and $unenrolls unenrollments.");
         }
+
+        // Get the elapsed time.
+        $elapsedtime = round(microtime(true) - $starttime, 2);
+
+        mtrace("Enrollment into Moodle courses took $elapsedtime seconds.");
 
         return true;
     }
