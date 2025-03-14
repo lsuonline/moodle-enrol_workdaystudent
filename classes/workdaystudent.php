@@ -297,7 +297,7 @@ class workdaystudent {
         } elseif (isset($period->Academic_Period_ID) && !isset($period->academic_period_id)) {
             $period->academic_period_id = $period->Academic_Period_ID;
         } else {
-            mtrace("No academic period in the period, look into this");
+            mtrace("Error! No academic period in the period, look into this");
             var_dump($period);
             return false;
         }
@@ -356,7 +356,7 @@ class workdaystudent {
                 // Return the updated object.
                 return $ap2;
             } else {
-                mtrace("   - Updating $ap->academic_period_id failed and has not been updated.");
+                mtrace("   - Error! Updating $ap->academic_period_id failed and has not been updated.");
 
                 // Return the original object.
                 return $ap;
@@ -526,7 +526,7 @@ class workdaystudent {
                 // Return the updated object.
                 return $as2;
             } else {
-                mtrace("Updating $as->section_listing_id failed and has not been updated.");
+                mtrace("Error! Updating $as->section_listing_id failed and has not been updated.");
 
                 // Return the original object.
                 return $as;
@@ -599,7 +599,7 @@ class workdaystudent {
                 // Return the updated object.
                 return $ac2;
             } else {
-                mtrace("    Updating $ac->course_listing_id failed and has not been updated.");
+                mtrace("    Error! Updating $ac->course_listing_id failed and has not been updated.");
 
                 // Return the original object.
                 return $ac;
@@ -657,7 +657,7 @@ class workdaystudent {
         if (!isset($enrollment->Universal_Id)) {
             $fullname = isset($enrollment->Full_Legal_Name) ? $enrollment->Full_Legal_Name : 'Someone';
             $email = isset($enrollment->LSUAM_Institutional_Email) ? $enrollment->LSUAM_Institutional_Email : $fullname;
-            mtrace("$enrollment->Section_Listing_ID missing universal ID for $email.");
+            mtrace("Error! $enrollment->Section_Listing_ID missing universal ID for $email.");
             return false;
         }
 
@@ -735,7 +735,7 @@ class workdaystudent {
         $as2 = clone($as);
 
         if (!isset($enrollment->Grading_Basis)) {
-            mtrace("Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
+            mtrace("Error! Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
         }
 
         // Keep the id, section_listing_id, and $universal_id from $as and populate the rest from aenrollment.
@@ -955,7 +955,7 @@ class workdaystudent {
             // If there are fewer times than days, we should repeat the times or handle the mismatch.
             if (empty($starttime) || empty($endtime)) {
                 // Skip days with invalid time or log an error.
-                mtrace("Invalid time for day: $day");
+                mtrace("Error! Invalid time for day: $day");
                 continue;
             }
 
@@ -966,7 +966,7 @@ class workdaystudent {
             // Check if the DateTime creation was successful.
             if ($startdatetime === false || $enddatetime === false) {
                 // Handle the error (skip and log it).
-                mtrace("Failed to parse time: Start time - $starttime, End time - $endtime");
+                mtrace("Error! Failed to parse time: Start time - $starttime, End time - $endtime");
                 continue;
             }
 
@@ -1166,7 +1166,7 @@ class workdaystudent {
                 // Return the updated object.
                 return $au2;
             } else {
-                mtrace(" - Updating $au->academic_unit_id failed and has not been updated.");
+                mtrace(" - Error! Updating $au->academic_unit_id failed and has not been updated.");
 
                 // Return the original object.
                 return $au;
@@ -1569,9 +1569,9 @@ class workdaystudent {
         // Get the actual data.
         $periods = $DB->get_records_sql($sql);
 
+        // TODO: Remove this shit.
         $forced = new stdClass();
         $forced->academic_period_id = "LSUAM_SPRING_2024";
-
         $periods["LSUAM_SPRING_2024"] = $forced;
 
         return $periods;
@@ -1664,7 +1664,7 @@ class workdaystudent {
             }
 
         } else {
-            mtrace("  Failed to truncate enrol_wds_programs.");
+            mtrace("  Error! Failed to truncate enrol_wds_programs.");
             return $success;
         }
 
@@ -1835,7 +1835,7 @@ class workdaystudent {
             }
 
         } else {
-            mtrace("  Failed to truncate enrol_wds_grade_schemes.");
+            mtrace("  Error! Failed to truncate enrol_wds_grade_schemes.");
             return $success;
         }
 
@@ -1852,8 +1852,6 @@ class workdaystudent {
 
         // Set the table.
         $table = 'enrol_wds_grade_schemes';
-
-// TODO: Do we really need to explode and do this crap?
 
         // Set the singular data object.
         $dataobj = array(
@@ -2246,7 +2244,7 @@ class workdaystudent {
             }
             self::dtrace("Finished processing of student metadata for $stu->universal_id.");
         } else {
-            mtrace("Could not delete student metadata for $student->Universal_ID.");
+            mtrace("Error! Could not update student metadata for $student->Universal_ID.");
         }
     }
 
@@ -2506,7 +2504,7 @@ class workdaystudent {
                 $schoolid = !is_null($stu->school_id) ?
                     ' ' . $stu->school_id . ',' :
                     "";
-                mtrace('DB ID: ' . $stu->id . ', ' .
+                mtrace('Error! IDB student ID: ' . $stu->id . ', ' .
                     $stu->universal_id . ', ' .
                     $stu->email . ',' .
                     $stu->school_id . ' - ' .
@@ -2524,11 +2522,13 @@ class workdaystudent {
 
         } else if (count($stus) == 1) {
             // Grab the student from the array. 
-            self::dtrace("  Student found with universal_id: $student->Universal_Id, email: $email, school_id: $lid.");
+            self::dtrace("  Student found with universal_id: " .
+                "$student->Universal_Id, email: $email, school_id: $lid.");
             $stu = reset($stus);
 
         } else {
-            self::dtrace("  No student with universal_id: $student->Universal_Id, email: $email, school_id: $lid.");
+            self::dtrace("  No student with universal_id: " .
+                "$student->Universal_Id, email: $email, school_id: $lid.");
             $stu = null;
         }
 
@@ -2572,10 +2572,13 @@ class workdaystudent {
         $stu2->email = $email;
         $stu2->school_id = $lid;
         $stu2->firstname = $student->First_Name;
-        $stu2->preferred_firstname = isset($student->Preferred_First_Name) ? $student->Preferred_First_Name : null;
+        $stu2->preferred_firstname = isset($student->Preferred_First_Name) ?
+            $student->Preferred_First_Name : null;
         $stu2->lastname = $student->Last_Name;
-        $stu2->preferred_lastname = isset($student->Preferred_Last_Name) ? $student->Preferred_Last_Name : null;
-        $stu2->middlename = isset($student->Middle_Name) ? $student->Middle_Name : null;
+        $stu2->preferred_lastname = isset($student->Preferred_Last_Name) ?
+            $student->Preferred_Last_Name : null;
+        $stu2->middlename = isset($student->Middle_Name) ?
+            $student->Middle_Name : null;
 
         // If the objects match.
         if (get_object_vars($stu1) === get_object_vars($stu2)) {
@@ -2593,7 +2596,9 @@ class workdaystudent {
             // Update the record.
             $istudent = $DB->update_record($table, $stu2, false);
 
-            self::dtrace("  - Updated student with universal_id: $stu->universal_id - $student->Universal_Id, email: $stu->email - $email, school_id: $stu->school_id - $lid.");
+            self::dtrace("  - Updated student with universal_id: " .
+                "$stu->universal_id - $student->Universal_Id, email: " .
+                "$stu->email - $email, school_id: $stu->school_id - $lid.");
 
             return $istudent;
         }
@@ -2621,20 +2626,24 @@ class workdaystudent {
         $data->school_id = $lid;
         $data->userid = null;
         $data->firstname = $student->First_Name;
-        $data->preferred_firstname = isset($student->Preferred_First_Name) ? $student->Preferred_First_Name : null;
+        $data->preferred_firstname = isset($student->Preferred_First_Name) ?
+            $student->Preferred_First_Name : null;
         $data->lastname = $student->Last_Name;
-        $data->preferred_lastname = isset($student->Preferred_Last_Name) ? $student->Preferred_Last_Name : null;
-        $data->middlename = isset($student->Middle_Name) ? $student->Middle_Name : null;
+        $data->preferred_lastname = isset($student->Preferred_Last_Name) ?
+            $student->Preferred_Last_Name : null;
+        $data->middlename = isset($student->Middle_Name) ?
+            $student->Middle_Name : null;
         $data->lastupdate = time();
 
         $success = $DB->insert_record($table, $data, true);
 
         if (is_int($success)) {
             $stu = $DB->get_record($table, array('id' => $success));
-            self::dtrace("  - Created student with universal_id: $stu->universal_id, email: $stu->email, school_id: $stu->school_id.");
+            self::dtrace("  - Created student with universal_id: " .
+                "$stu->universal_id, email: $stu->email, school_id: $stu->school_id.");
             return $stu;
         } else {
-            mtrace("  - Failed to create interstitial student.");
+            mtrace("  - Error! Failed to create interstitial student.");
             var_dump($student);
             return false;
         }
@@ -2652,7 +2661,8 @@ class workdaystudent {
 
             $endtime = microtime(true);
             $elapsedtime = round($endtime - $starttime, 4);
-            self::dtrace("  Student: $stu->universal_id took $elapsedtime seconds to process.");
+            self::dtrace("  Student: $stu->universal_id took " .
+                "$elapsedtime seconds to process.");
 
             return $stu;
 
@@ -2662,7 +2672,8 @@ class workdaystudent {
 
             $endtime = microtime(true);
             $elapsedtime = round($endtime - $starttime, 4);
-            self::dtrace("  Student: $stu->universal_id took $elapsedtime seconds to process.");
+            self::dtrace("  Student: $stu->universal_id took " .
+                "$elapsedtime seconds to process.");
 
             return $stu;
         }
@@ -2680,7 +2691,8 @@ class workdaystudent {
 
             $endtime = microtime(true);
             $elapsedtime = round($endtime - $starttime, 4);
-            self::dtrace(" User: $tea->universal_id took $elapsedtime seconds to process.");
+            self::dtrace(" User: $tea->universal_id took " .
+                "$elapsedtime seconds to process.");
 
             return $tea;
 
@@ -2694,7 +2706,8 @@ class workdaystudent {
 
             $endtime = microtime(true);
             $elapsedtime = round($endtime - $starttime, 4);
-            self::dtrace(" User: $tea->universal_id took $elapsedtime seconds to process.");
+            self::dtrace(" User: $tea->universal_id took " .
+                "$elapsedtime seconds to process.");
 
             return $tea;
         }
@@ -2717,7 +2730,7 @@ class workdaystudent {
         $teas = $DB->get_records_sql($sql);
         if (count($teas) > 1) {
             foreach ($teas as $tea) {
-                mtrace('DB ID: ' . $tea->id . ', ' .
+                mtrace('Error! IDB teacher ID: ' . $tea->id . ', ' .
                     $tea->universal_id . ', ' .
                     $tea->email . ',' .
                     $tea->firstname . ' ' .
@@ -2733,11 +2746,15 @@ class workdaystudent {
 
         } else if (count($teas) == 1) {
             // Grab the teacher from the array.
-            self::dtrace(" User found with universal_id: $teacher->Instructor_ID, email: $teacher->Instructor_Email.");
+            self::dtrace(" User found with universal_id: " .
+                "$teacher->Instructor_ID, email: " .
+                "$teacher->Instructor_Email.");
             $tea = reset($teas);
 
         } else {
-            self::dtrace(" No user with universal_id: $teacher->Instructor_ID, email: $teacher->Instructor_Email.");
+            self::dtrace(" No user with universal_id: " .
+                "$teacher->Instructor_ID, email: " .
+                "$teacher->Instructor_Email.");
             $tea = null;
         }
 
@@ -2787,7 +2804,9 @@ class workdaystudent {
             // Update the record.
             $iteacher = $DB->update_record($table, $tea2, false);
 
-            self::dtrace(" Updated user with universal_id: $tea->universal_id - $teacher->Instructor_ID, email: $tea->email - $email.");
+            self::dtrace(" Updated user with universal_id: " .
+                "$tea->universal_id - $teacher->Instructor_ID, email: " .
+                "$tea->email - $email.");
 
             return $iteacher;
         }
@@ -2800,7 +2819,7 @@ class workdaystudent {
         if (isset($teacher->Instructor_Email)) {
             $email = $teacher->Instructor_Email;
         } else {
-            mtrace(" Failed to create interstitial user. No email provided.");
+            mtrace(" Error! Failed to create interstitial user. No email provided.");
             mtrace($teacher->Instructor_ID);
             return false;
         }
@@ -2822,10 +2841,11 @@ class workdaystudent {
 
         if (is_int($success)) {
             $tea = $DB->get_record($table, array('id' => $success));
-            self::dtrace(" Created user with universal_id: $tea->universal_id, email: $tea->email.");
+            self::dtrace(" Created user with universal_id: " .
+                "$tea->universal_id, email: $tea->email.");
             return $tea;
         } else {
-            mtrace(" Failed to create interstitial user.");
+            mtrace(" Error! Failed to create interstitial user.");
             var_dump($teacher);
             return false;
         }
@@ -2903,10 +2923,11 @@ class workdaystudent {
                 $data->status = $status;
 
                 // Insert the record.
-                $enroll = $DB->insert_record($table, $data, false);
-                self::dtrace(" - Inserted $universalid in $sectionid with role: $data->role and status: $data->status");
+                // TODO: is this returnid right???? Or should it be false?
+                $enroll = $DB->insert_record($table, $data, $returnid = true);
+                self::dtrace(" - Inserted $universalid in $sectionid with role: " .
+                    "$data->role and status: $data->status");
 
-                // TODO: ????
                 return $enroll;
 
             // We returned a matching enrollment.
@@ -2921,7 +2942,9 @@ class workdaystudent {
                 $data->status = $status;
 
                 // Deal with previous statuses.
-                if ($enr->status == 'unenroll' && ($enr->prevstatus == 'enroll' || $enr->prevstatus == 'enrolled')) {
+                if ($enr->status == 'unenroll' && (
+                    $enr->prevstatus == 'enroll' || $enr->prevstatus == 'enrolled'
+                )) {
                     $data->prevstatus = $data->prevstatus;
                 } else {
                     $data->prevstatus = $enr->status;
@@ -2929,15 +2952,18 @@ class workdaystudent {
 
                 // Compare the objects.
                 if (get_object_vars($data) === get_object_vars($enr)) {
-                    self::dtrace(" - Enrollment entry: $data->id matches exactly, skipping.");
+                    self::dtrace(" - Enrollment entry: " .
+                        "$data->id matches exactly, skipping.");
 
                     return $enr;
                 } else {
                     // Update the record and log.
-                    $enroll = $DB->update_record($table, $data, false);
-                    self::dtrace(" - Updated: $data->id - $universalid in $sectionid with role: $data->role and status: $data->status");
+                    // TODO: is this returnid right???? Or should it be false?
+                    $enroll = $DB->update_record($table, $data, $returnid = true);
+                    self::dtrace(" - Updated: $data->id - $universalid in " .
+                        "$sectionid with role: $data->role " .
+                        "and status: $data->status");
 
-                    // TODO: ????
                     return $enroll;
                 }
             }
@@ -3010,7 +3036,7 @@ class workdaystudent {
             $cleanerror = preg_replace('/\n/', ' ', $error);
             $cleanerror = preg_replace('/UPDATE.*/', '', $cleanerror);
             $cleanerror = trim($cleanerror) . ')';
-            mtrace("Error: " . $cleanerror);
+            mtrace("Error! " . $cleanerror);
         }
 
         if (!$mupdates) {
@@ -3020,7 +3046,8 @@ class workdaystudent {
             // Loop through the dupes.
             foreach ($dupes as $dupe) {
                 // Log the dupes.
-                mtrace("DUPE! $dupe->userids; $dupe->email; $dupe->fullnames");
+                mtrace("Error! DUPE! $dupe->userids; " .
+                    "$dupe->email; $dupe->fullnames");
             }
         }
 
@@ -3236,7 +3263,8 @@ class workdaystudent {
         }
 
         // If they have a middle name, use it.
-        $user->middlename = isset($student->middlename) ? $student->middlename : null;
+        $user->middlename = isset($student->middlename) ?
+            $student->middlename : null;
 
         // Use the default language when building the object.
         $user->lang = $CFG->lang;
@@ -3290,7 +3318,8 @@ class workdaystudent {
           $user = reset($users);
           return $user;
         } else {
-            mtrace("ERROR: $usercount matches for $field->$value, skipping update.");
+            mtrace("ERROR! $usercount matches for $field->$value, " .
+                "skipping update.");
             return false;
         }
     }
@@ -3316,7 +3345,8 @@ class workdaystudent {
 
                 // Return the user if we have one.
                 if ($user) {
-                    self::dtrace("Found $field->$value as $user->id: $field->" . $user->$field . ".");
+                    self::dtrace("Found $field->$value as " .
+                        "$user->id: $field->" . $user->$field . ".");
                     return $user;
                 }
             }
@@ -3347,7 +3377,8 @@ class workdaystudent {
             $muserfield = \core_text::strtolower($muser->$field);
 
             // Check if the provided value exists and differs from the existing value.
-            if (isset($user->$field) && strcasecmp($muserfield, $userfield) != 0) {
+            if (isset($user->$field)
+                && strcasecmp($muserfield, $userfield) != 0) {
 
                 // If there's a difference, update the field.
                 $muser->$field = $user->$field;
@@ -3377,7 +3408,7 @@ class workdaystudent {
                 $updated = user_update_user($muser);
             } catch (Exception $e) {
                 $updated = false;
-                mtrace("Error: " . $e->getMessage());
+                mtrace("Error! " . $e->getMessage());
             }
 
             // If the update was successful, log it and return true.
@@ -3388,7 +3419,8 @@ class workdaystudent {
                 return $updated;
             }
         } else {
-            self::dtrace("No changes were found in the above user objects (case insensitive).");
+            self::dtrace("No changes were found in the " .
+                "above user objects (case insensitive).");
         }
 
         return false;
@@ -3439,7 +3471,7 @@ class workdaystudent {
                 $moodleuser = user_create_user($user);
             } catch (Exception $e) {
                 $moodleuser = false;
-                mtrace("Error: " . $e->getMessage());
+                mtrace("Error! " . $e->getMessage());
             }
 
             if ($moodleuser) {
@@ -3605,10 +3637,11 @@ die();
             $groupid = groups_create_group($group);
 
             if ($groupid) {
-                self::dtrace("  Group created with ID: $groupid.");
+                self::dtrace(" Course group $groupname with id: " .
+                    "$groupid added to course id: $course->id.");
                 continue;
             } else {
-                mtrace("  Failed to create group: $group->name.");
+                mtrace(" Error! Failed to create group: $groupname.");
                 continue;
             }
         }
@@ -3711,8 +3744,10 @@ die();
 
         // TODO: This is not right!
         } else if (isset($exists->id) && $exists->idnumber != $course->idnumber) {
-            mtrace(" We should never have a matching shortname with a mismatched idnumber!");
-            mtrace(" - Course Shell: $exists->idnumber, Interstitial record: $course->idnumber.");
+            mtrace(" Error! We should never have a matching " .
+                "shortname with a mismatched idnumber!");
+            mtrace(" - Error! Course Shell: $exists->idnumber, " .
+                "Interstitial record: $course->idnumber.");
             return false;
         }
 
@@ -3724,7 +3759,8 @@ die();
             // Build out the groups.
             $groups = self::create_moodle_group($moodlecourse, $mshell);
 
-            self::dtrace("  Created $course->fullname. Updating idb idnumber.");
+            self::dtrace("  Created $course->fullname. " .
+                "Updating idb idnumber.");
             $sectiontable = 'enrol_wds_sections';
             $sectionids = explode(",", $mshell->sectionids);
             foreach ($sectionids as $sectionid) {
@@ -3754,49 +3790,72 @@ die();
     public static function get_create_course_category_id($mshell) {
         global $DB;
 
+        // Get settings.
+        $s = self::get_settings();
+
         // Set the table.
         $table = 'course_categories';
 
-        // This sql is annoying because we ONLY want root categories for Moodle courses.
-        // TODO: Use the settings value for parent category!
+        // We might be trying to find or create a parent category.
+        if ($s->autoparent === 1) {
+            $parentcat = 0;
+
+            $parentname = "$mshell->period_type $mshell->period_year";
+            $parentpathsql = "AND cc.path = CONCAT('/$parentname/', cc.id)";
+            $catnamesql = "AND cc.name = '$parentname'";
+
+        } else {
+
+            // Set this relative to the configured parent.
+            $parentcat = $s->parentcat;
+            $parentpathsql = "AND cc.path = CONCAT('/$parentcat/', cc.id)";
+            $catnamesql = "AND cc.name = '$mshell->course_subject_abbreviation'";
+        }
+
+        $catname = isset($parentname) ? $parentname : $mshell->course_subject_abbreviation;
+        $catdesc = isset($parentname) ? $parentname : $mshell->course_subject;
+
+        // This sql is annoying.
         $ccsql = "SELECT *
             FROM {course_categories} cc
-            WHERE cc.parent = 128
-                AND cc.path = CONCAT('/128/', cc.id)
-                AND cc.name = '$mshell->course_subject_abbreviation'
+            WHERE cc.parent = $parentcat
+                $parentpathsql
+                $catnamesql
             ORDER BY cc.name ASC";
 
         // Set the category object.
         $category = $DB->get_records_sql($ccsql);
 
         if (is_array($category) && !empty($category) && count($category) > 1) {
-            mtrace("  ERROR: Multiple categories for $mshell->course_subject_abbreviation. Deal with it.");
+            mtrace("  ERROR! Multiple categories for $catname. Deal with it.");
         } else if (is_array($category) && !empty($category)) {
             $category = reset($category);
 
             // We have a match, let's see if the subject needs updating.
-            if ($category->description != $mshell->course_subject) {
+            if ($category->description != $catdesc) {
 
                 // Mismatch! Update to the course subject.
-                $category->description = $mshell->course_subject;
+                $category->description = $catdesc;
 
                 // Actually do it.
                 $updated = $DB->update_record($table, $category);
 
                 // Something went wrong!
                 if (!$updated) {
-                    mtrace("  ERROR! Failed to updated course category: $cagtegory->id.");
+                    mtrace("  ERROR! Failed to updated course category: " .
+                        "$cagtegory->id.");
                 }
             }
         } else {
-            self::dtrace("We do not have a matching $mshell->course_subject_abbreviation category. Create it.");
+            self::dtrace("We do not have a matching $catname " .
+                "category. Create it.");
 
             // Moodle wants an array for the new category.
             $categorydata = [
-                'name' => $mshell->course_subject_abbreviation,
+                'name' => $catname,
                 // TODO: Use the settings value for parent category.
-                'parent' => 128,
-                'description' => $mshell->course_subject,
+                'parent' => $parentcat,
+                'description' => $catdesc,
                 'descriptionformat' => FORMAT_HTML,
                 'visible' => 1
             ];
@@ -3822,7 +3881,11 @@ die();
         $enrrecord->status = $enrollment->moodle_enrollment_status . 'ed';
 
         // Do the nasty.
-        $completed = $DB->update_record('enrol_wds_student_enroll', $enrrecord, $returnid = true);
+        $completed = $DB->update_record(
+            'enrol_wds_student_enroll',
+            $enrrecord,
+            $returnid = true
+        );
 
         return $completed;
     }
@@ -3868,7 +3931,7 @@ die();
         $indent = !is_null($indent) ? '' : $indent;
 
         // If debugdisplay is on.
-        if ($CFG->debugdisplay === 1) {
+        if ($CFG->debugdisplay === "1") {
             $mtrace = mtrace($message);
             return $mtrace;
         } else {
@@ -3955,7 +4018,9 @@ die();
     public static function wds_get_enrollments($period, $coursesection = null) {
         global $DB;
 
-        $reprocesssection = is_null($coursesection) ? '' : " AND sec.idnumber = '$coursesection'";
+        $reprocesssection = is_null($coursesection) ?
+            '' :
+            " AND sec.idnumber = '$coursesection'";
 
         $sql = "SELECT stuenr.id AS enrollment_id,
                 stu.userid AS userid,
@@ -4023,7 +4088,8 @@ class wdscronhelper {
         // Calculate the units fetch time.
         $unitselapsed = round($unitsend - $unitstart, 2);
 
-        mtrace(" Fetched $numunits units from webserice in $unitselapsed seconds.");
+        mtrace(" Fetched $numunits units from webserice " .
+            "in $unitselapsed seconds.");
 
         mtrace(" Processing $numunits units from webserice.");
 
@@ -4096,8 +4162,10 @@ class wdscronhelper {
 
                 foreach ($periods as $period) {
                     $indent = "   ";
-                    workdaystudent::dtrace("$indent" . "Processing $period->Academic_Period_ID: " .
-                        "$period->Name for $unit->academic_unit_id: $unit->academic_unit.", $indent);
+                    workdaystudent::dtrace("$indent" .
+                        "Processing $period->Academic_Period_ID: " .
+                        "$period->Name for $unit->academic_unit_id: " .
+                        "$unit->academic_unit.", $indent);
 
                     // Get ancillary dates for census and post grades.
                     $pdates = workdaystudent::get_period_dates($s, $period);
@@ -4112,8 +4180,10 @@ class wdscronhelper {
                         // Check to see if we have a matching period date entry.
                         $date = workdaystudent::insert_update_period_date($s, $pdate);
                     }
-                    workdaystudent::dtrace("$indent" . "Finished processing $period->Academic_Period_ID: " .
-                        "$period->Name for $unit->academic_unit_id: $unit->academic_unit.", $indent);
+                    workdaystudent::dtrace("$indent" .
+                        "Finished processing $period->Academic_Period_ID: " .
+                        "$period->Name for $unit->academic_unit_id: " .
+                        "$unit->academic_unit.", $indent);
                 }
             }
 
@@ -4152,7 +4222,8 @@ class wdscronhelper {
 
         // Gett the time it took to fetch them and log it.
         $gstime = round(microtime(true) - $timestarted, 3);
-        mtrace("    Took $gstime seconds to fetch $numgrabbed remote programs of study.");
+        mtrace("    Took $gstime seconds to fetch $numgrabbed " .
+            "remote programs of study.");
 
         // Set the update start time.
         $timeustarted = microtime(true);
@@ -4170,12 +4241,15 @@ class wdscronhelper {
             // Get a program count.
             $pgmcount = count($pgms);
 
-            mtrace("\n    Took $ugstime seconds to insert or update $pgmcount programs of study.");
+            mtrace("\n    Took $ugstime seconds to insert or " .
+                "update $pgmcount programs of study.");
         } else {
-            mtrace("\n    Updating $numgrabbed programs of study failed.");
+            mtrace("\n    Updating $numgrabbed programs " .
+                "of study failed.");
         }
 
-        mtrace("  Took $uttime seconds to complete the fetch and update $pgmcount programs.");
+        mtrace("  Took $uttime seconds to complete the fetch " .
+            "and update $pgmcount programs.");
 
         return true;
     }
@@ -4210,7 +4284,8 @@ class wdscronhelper {
         // Get the time it took to fetch them and log it.
         $gstime = round(microtime(true) - $timestarted, 3);
 
-        mtrace("    Took $gstime seconds to fetch $numgrabbed remote courses.");
+        mtrace("    Took $gstime seconds to fetch " .
+            "$numgrabbed remote courses.");
 
         // Set the update start time.
         $timeustarted = microtime(true);
@@ -4242,8 +4317,10 @@ class wdscronhelper {
         // Set the time it took to run the entire process.
         $uttime = round(microtime(true) - $timestarted, 3);
 
-        mtrace("\n    Took $ugstime seconds to insert or update $numgrabbed courses.");
-        mtrace("  Took $uttime seconds to complete the fetch and update $numgrabbed courses.");
+        mtrace("\n    Took $ugstime seconds to insert " .
+            "or update $numgrabbed courses.");
+        mtrace("  Took $uttime seconds to complete the " .
+            "fetch and update $numgrabbed courses.");
 
         return $icourses;
     }
@@ -4379,7 +4456,8 @@ class wdscronhelper {
 
                     // We don't have a primary.
                     } else {
-                        workdaystudent::dtrace("    Sole instructor in $secid and $tid is non-primary.");
+                        workdaystudent::dtrace("    Sole instructor in $secid and " .
+                            "$tid is non-primary.");
 
                         // Set the role to non-primary.
                         $role = 'teacher';
@@ -4389,7 +4467,12 @@ class wdscronhelper {
                     $iteacher = workdaystudent::create_update_iteacher($s, $teacher);
 
                     // Update the teacher enrollment db.
-                    $enrollment = workdaystudent::insert_update_teacher_enrollment($secid, $tid, $role, $status);
+                    $enrollment = workdaystudent::insert_update_teacher_enrollment(
+                        $secid,
+                        $tid,
+                        $role,
+                        $status
+                    );
                 }
             }
         }
@@ -4422,7 +4505,8 @@ class wdscronhelper {
         $gstime = round(microtime(true) - $timestarted, 3);
 
         // Log it.
-        mtrace("    It took $gstime seconds to fetch $numgrabbed remote grading schemes.");
+        mtrace("    It took $gstime seconds to fetch " .
+            "$numgrabbed remote grading schemes.");
 
         // Set the update time start.
         $timeustarted = microtime(true);
@@ -4435,7 +4519,8 @@ class wdscronhelper {
 
         if (!$gs) {
             // Log it.
-            mtrace("    ERROR: Something went wrong with the updating of grading schemes.");
+            mtrace("    ERROR: Something went wrong with " .
+                "the updating of grading schemes.");
             mtrace("  Processing of grading schems is complete.");
 
             return false;
@@ -4530,7 +4615,9 @@ class wdscronhelper {
                             $student->Last_Name . '.');
 
                         // We do not have a default suffix, build one out based on institution.
-                        $esuffix = workdaystudent::get_suffix_from_institution($student) . '_Email';
+                        $esuffix = workdaystudent::get_suffix_from_institution(
+                            $student
+                        ) . '_Email';
 
                         // Set email accordingly.
                         $email = isset($student->$esuffix) ? $student->$esuffix : null;
@@ -4722,7 +4809,8 @@ class wdscronhelper {
             // How long did the mass user updates take?
             $mupdatetime = round(microtime(true) - $mupdatestart, 2);
 
-            mtrace("Mass student updates took $mupdatetime seconds to update $msupdates users.");
+            mtrace("Mass student updates took $mupdatetime " .
+                "seconds to update $msupdates users.");
         } else {
             mtrace("No mass student updates to do.");
         }
@@ -4737,7 +4825,8 @@ class wdscronhelper {
             $mupdatetime = round(microtime(true) - $mupdatestart, 2);
 
             if ($updated) {
-                mtrace("Mass teacher updates took $mupdatetime seconds to update $mtupdates users.");
+                mtrace("Mass teacher updates took $mupdatetime " .
+                    "seconds to update $mtupdates users.");
             } else {
                 mtrace("Mass teacher updates failed due to the reasons above.");
             }
@@ -4767,7 +4856,8 @@ class wdscronhelper {
             // Give me a count.
             $nusercount = count($nsusers);
 
-            mtrace("New user evaluation took $nuelapsed seconds for $nusercount users.");
+            mtrace("New user evaluation took $nuelapsed seconds " .
+                "for $nusercount users.");
         } else {
             mtrace("No new users to create or update.");
         }
@@ -4825,6 +4915,7 @@ class wdscronhelper {
             // Get some counts.
             $createdcount = 0;
             $skippedcount = 0;
+
             if (!empty($mshells)) {
                 foreach ($mshells as $mshell) {
 
@@ -4897,6 +4988,8 @@ class enrol_workdaystudent extends enrol_plugin {
         // We need this to mess with groups.
         require_once($CFG->dirroot . '/group/lib.php');
 
+        mtrace("Enrollment into Moodle courses starting.");
+
         // Array to store instances already checked per course.
         $checkedcourses = [];
 
@@ -4919,7 +5012,7 @@ class enrol_workdaystudent extends enrol_plugin {
             // Set these for later.
             $userid = $enrollment->userid;
             $courseid = $enrollment->courseid;
-            $roleid = $enrollment->roleid ?? $studentrole;
+            $roleid = $studentrole;
             $status = $enrollment->moodle_enrollment_status;
 
             // Check if we've already retrieved/created the instance for this course.
@@ -4931,7 +5024,8 @@ class enrol_workdaystudent extends enrol_plugin {
 
                 // If no instance exists, create a new one.
                 if (!$instance) {
-                    workdaystudent::dtrace("No enrollment instance for course: $courseid. Creating it.");
+                    workdaystudent::dtrace("No enrollment instance for course: " .
+                        "$courseid. Creating it.");
 
                     // Build out the enrollment instance object.
                     $enrol = new stdClass();
@@ -4984,6 +5078,7 @@ class enrol_workdaystudent extends enrol_plugin {
 
                 // Create the group.
                 $newgroupid = groups_create_group($newgroup);
+                workdaystudent::dtrace(" Course group $groupname with id: $newgroupid added to course id: $courseid.");
             }
 
             $groupid = isset($group->id) ? $group->id : $newgroupid;
@@ -4992,7 +5087,7 @@ class enrol_workdaystudent extends enrol_plugin {
             // TODO: Go back to just enroll.
             // if ($enrollment->moodle_enrollment_status == 'enroll') {
             if ($enrollment->moodle_enrollment_status == 'enroll' ||
-                $enrollment->moodle_enrollment_status == 'Completed') {
+                $enrollment->moodle_enrollment_status == 'completed') {
 
                 // If we don't have any enrollments for this course, set it to 0.
                 if (!isset($enrollmentcounts[$courseid])) {
@@ -5014,6 +5109,7 @@ class enrol_workdaystudent extends enrol_plugin {
 
                     // Add the user to the group in case they're not in the group.
                     groups_add_member($groupid, $userid);
+                    workdaystudent::dtrace(" User id: $userid added to group id: $groupid.");
 
                     // Always log if a failure happens.
                     if ($updated) {
@@ -5029,6 +5125,7 @@ class enrol_workdaystudent extends enrol_plugin {
 
                 // Do the nasty.
                 $enrollplugin->enrol_user($instance, $userid, $roleid, $enrollment->wds_regdate);
+                workdaystudent::dtrace(" User id: $userid enrolled into course id: $instance->courseid.");
 
                 // Update the insterstitial status.
                 $updated = workdaystudent::update_interstitial_enrollment_status($enrollment);
@@ -5042,6 +5139,7 @@ class enrol_workdaystudent extends enrol_plugin {
 
                 // Add the user to the group.
                 groups_add_member($groupid, $userid);
+                workdaystudent::dtrace(" User id: $userid added to group id: $groupid.");
 
             // Let's deal with unenrollments.
             } else if ($enrollment->moodle_enrollment_status == 'unenroll') {
@@ -5057,8 +5155,10 @@ class enrol_workdaystudent extends enrol_plugin {
                 if (!isset($s->suspend) || $s->suspend == 0) {
                     // Do the nasty.
                     $enrollplugin->unenrol_user($instance, $userid);
+                    workdaystudent::dtrace(" User id: $userid unenrolled from course id: $instance->courseid.");
                 } else {
                     $enrollplugin->update_user_enrol($instance->id, $userid, ENROL_USER_SUSPENDED);
+                    workdaystudent::dtrace(" User id: $userid suspended from course id: $instance->courseid.");
                 }
 
                 // Update the insterstitial status.
