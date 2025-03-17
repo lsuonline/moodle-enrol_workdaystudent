@@ -1591,7 +1591,7 @@ class workdaystudent {
         return $sections;
     }
 
-    public static function get_psd_enrollments($s, $psd = null, $fdate = null) {
+    public static function get_period_enrollments($s, $period = null, $fdate = null) {
         // Set the endpoint.
         $endpoint = 'registrations';
 
@@ -1603,14 +1603,14 @@ class workdaystudent {
             $parms['Last_Updated'] = $fdate;
         }
 
-        if (isset($psd->course_section_definition_id)) {
-            $parms['Course_Section_Definition_ID'] = $psd->course_section_definition_id;
-            $parms['Academic_Period!Academic_Period_ID'] = $psd->academic_period_id;
-        } else if (isset($psd->course_subject_abbreviation)) {
-            $parms['Subject_Code'] = $psd->course_subject_abbreviation;
-            $parms['Academic_Period!Academic_Period_ID'] = $psd->academic_period_id;
+        if (isset($period->course_section_definition_id)) {
+            $parms['Course_Section_Definition_ID'] = $period->course_section_definition_id;
+            $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
+        } else if (isset($period->course_subject_abbreviation)) {
+            $parms['Subject_Code'] = $period->course_subject_abbreviation;
+            $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
         } else {
-            $parms['Academic_Period!Academic_Period_ID'] = $psd->academic_period_id;
+            $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
         }
 
         $parms['format'] = 'json';
@@ -4729,7 +4729,7 @@ class wdscronhelper {
             $enrollmentstart = $periodstart;
 
             // Fetch the actual enrollments for the period.
-            $enrollments = workdaystudent::get_psd_enrollments($s, $period, null);
+	    $enrollments = workdaystudent::get_period_enrollments($s, $period, null);
 
             // Set some times.
             $enrollmentend = microtime(true);

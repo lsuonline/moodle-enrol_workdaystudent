@@ -88,7 +88,7 @@ foreach ($departments as $department) {
     $enrollmentstart = $departmentstart;
 
     // Fetch the actual enrollments for the department.
-    $enrollments = workdaystudent::get_psd_enrollments($s, $department, $fdate);
+    $enrollments = workdaystudent::get_period_enrollments($s, $department, $fdate);
 
     // Set some times.
     $enrollmentend = microtime(true);
