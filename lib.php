@@ -82,14 +82,14 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process grading schemes.
         $crongradingschemes = wdscronhelper::crongradeschemes();
 
-        // Process student enrollments. TODO: Fetch missing student datas.
-        $cronstuenroll = wdscronhelper::cronstuenroll();
-
         // Create and update moodle users.
         $cronstucreate = wdscronhelper::cronmusers();
 
         // Create course shells.
         $cronshells = wdscronhelper::cronmcourses();
+
+        // Process student enrollments. TODO: Fetch missing student datas.
+        $cronstuenroll = wdscronhelper::cronstuenroll();
 
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls();

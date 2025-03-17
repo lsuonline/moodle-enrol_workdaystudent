@@ -4024,6 +4024,7 @@ die();
 
         $sql = "SELECT stuenr.id AS enrollment_id,
                 stu.userid AS userid,
+                stuenr.universal_id AS student_id,
                 c.id AS courseid,
                 cou.course_subject_abbreviation AS department,
                 cou.course_subject AS department_desc,
@@ -4042,11 +4043,11 @@ die();
                     AND sec.idnumber IS NOT NULL
                 INNER JOIN mdl_enrol_wds_student_enroll stuenr
                     ON sec.section_listing_id = stuenr.section_listing_id
-                INNER JOIN mdl_enrol_wds_students stu
-                    ON stu.universal_id = stuenr.universal_id
                 INNER JOIN mdl_enrol_wds_teacher_enroll tenr
                     ON tenr.section_listing_id = sec.section_listing_id
                     AND tenr.role = 'primary'
+                LEFT JOIN mdl_enrol_wds_students stu
+                    ON stu.universal_id = stuenr.universal_id
             WHERE sec.academic_period_id = '$period->academic_period_id'
                 AND sec.idnumber IS NOT NULL
                 AND sec.controls_grading = 1
@@ -4999,6 +5000,7 @@ class enrol_workdaystudent extends enrol_plugin {
         // Set up our array counts.
         $enrollmentcounts = [];
         $unenrollmentcounts = [];
+        $skippedcounts = [];
 
         // Get settings.
         $s = workdaystudent::get_settings();
@@ -5094,6 +5096,28 @@ class enrol_workdaystudent extends enrol_plugin {
                     $enrollmentcounts[$courseid] = 0;
                 }
 
+                // We're trying to enroll a skipped user.
+                if (is_null($enrollment->userid)) {
+                    // If we have no skipped for this course, set it to 0;
+                    if (!isset($skippedcounts[$courseid])) {
+                        $skippedcounts[$courseid] = 0;
+                    }
+
+                    // We have a skipped enrollment.
+                    $skippedcounts[$courseid]++;
+
+                    mtrace("\n" . 'Error! ' .
+                        $enrollment->student_id .
+                        ' is missing their email, they were not enrolled in ' .
+                        $enrollment->department . ' ' .
+                        $enrollment->course_number . ' ' .
+                        $enrollment->section_number .
+                        ' - courseid: ' .
+                        $enrollment->courseid . '.');
+
+                    continue;
+                }
+
                 // Increment enrollments for this courseid.
                 $enrollmentcounts[$courseid]++;
 
@@ -5122,7 +5146,6 @@ class enrol_workdaystudent extends enrol_plugin {
                     }
                 }
 
-
                 // Do the nasty.
                 $enrollplugin->enrol_user($instance, $userid, $roleid, $enrollment->wds_regdate);
                 workdaystudent::dtrace(" User id: $userid enrolled into course id: $instance->courseid.");
@@ -5147,6 +5170,28 @@ class enrol_workdaystudent extends enrol_plugin {
                 // If we don't have any unenrollments for this course, set it to 0.
                 if (!isset($unenrollmentcounts[$courseid])) {
                     $unenrollmentcounts[$courseid] = 0;
+                }
+
+                // We're trying to unenroll a skipped user.
+                if (is_null($enrollment->userid)) {
+                    // If we have no skipped for this course, set it to 0;
+                    if (!isset($skippedcounts[$courseid])) {
+                        $skippedcounts[$courseid] = 0;
+                    }
+
+                    // We have a skipped unenrollment.
+                    $skippedcounts[$courseid]++;
+
+                    mtrace("\n" . 'Error! ' .
+                        $enrollment->student_id .
+                        ' is missing their email, they were not unenrolled from ' .
+                        $enrollment->department . ' ' .
+                        $enrollment->course_number . ' ' .
+                        $enrollment->section_number . 
+                        ' - courseid: ' .
+                        $enrollment->courseid . '.');
+
+                    continue;
                 }
 
                 // Increment unenrollments for this courseid.
@@ -5175,15 +5220,23 @@ class enrol_workdaystudent extends enrol_plugin {
         }
 
         // Combine enrollments and unenrollments into a single output loop.
-        $allcourses = array_unique(array_merge(array_keys($enrollmentcounts),
-            array_keys($unenrollmentcounts)));
+        $allcourses = array_unique(array_merge(
+            array_keys($enrollmentcounts),
+            array_keys($unenrollmentcounts),
+            array_keys($skippedcounts)
+        ));
 
+        mtrace("\nEnrollment Summary Begins");
         // Let us know how it went.
         foreach ($allcourses as $coursed) {
             $enrolls = $enrollmentcounts[$coursed] ?? 0;
             $unenrolls = $unenrollmentcounts[$coursed] ?? 0;
-            mtrace("Course $coursed had $enrolls enrollments and $unenrolls unenrollments.");
+            $skipped = $skippedcounts[$coursed] ?? 0;
+            mtrace(" Course $coursed had $enrolls enrollments," .
+               " $unenrolls unenrollments," .
+               " $skipped skipped due to missing emails.");
         }
+        mtrace("Enrollment Summary Complete");
 
         // Get the elapsed time.
         $elapsedtime = round(microtime(true) - $starttime, 2);
