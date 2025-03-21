@@ -38,9 +38,26 @@ if ($ADMIN->fulltree) {
     // Loop through those roles and do stuff.
     foreach ($roles as $role) {
         // Grab the role names from the DB.
-        $rname = $DB->get_record('role', array("id" => $role), "shortname");
+        $rname = $DB->get_record('role', array("id" => $role));
         // Set the studentroles array for the dropdown.
-        $studentroles[$role] = $rname->shortname;
+        $studentroles[$role] = $rname->name === "" ? $rname->shortname : $rname->name;
+    }
+
+    $facultyroles = array();
+
+    if (isset($CFG->coursecontact)) {
+        // Get the "teacher" roles.
+        $froles = explode(',', $CFG->coursecontact);
+    } else {
+        $froles = array();
+    }
+
+    // Loop through those roles and do stuff.
+    foreach ($froles as $frole) {
+        // Grab the role names from the DB.
+        $frname = $DB->get_record('role', array("id" => $frole));
+        // Set the studentroles array for the dropdown.
+        $facultyroles[$frole] = $frname->name === "" ? $frname->shortname : $frname->name;
     }
 
     // Grab the course categories.
@@ -176,6 +193,27 @@ if ($ADMIN->fulltree) {
 
     $settings->hide_if('enrol_workdaystudent/parentcat', 'enrol_workdaystudent/autoparent', 'eq', '1');
 
+    // Primary role.
+    $settings->add(
+        new admin_setting_configselect(
+            'enrol_workdaystudent/primaryrole',
+            get_string('workdaystudent:primaryrole', 'enrol_workdaystudent'),
+            get_string('workdaystudent:primaryrole_desc', 'enrol_workdaystudent'),
+            'None',  // Default.
+            $facultyroles
+        )
+    );
+
+    // Non-Primary role.
+    $settings->add(
+        new admin_setting_configselect(
+            'enrol_workdaystudent/nonprimaryrole',
+            get_string('workdaystudent:nonprimaryrole', 'enrol_workdaystudent'),
+            get_string('workdaystudent:nonprimaryrole_desc', 'enrol_workdaystudent'),
+            'None',  // Default.
+            $facultyroles
+        )
+    );
 
     // Student role.
     $settings->add(

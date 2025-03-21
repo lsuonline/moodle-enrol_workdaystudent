@@ -1527,10 +1527,12 @@ class workdaystudent {
     public static function get_current_departments($s) {
         global $DB;
 
-        $sql = 'SELECT CONCAT(p.id, "_",  c.id, "_", s.id) AS uniqueid, c.course_subject_abbreviation, p.academic_period_id 
+        $sql = 'SELECT CONCAT(p.id, "_",  c.id, "_", s.id) AS uniqueid,
+                c.course_subject_abbreviation,
+                p.academic_period_id 
             FROM {enrol_wds_periods} p
                 INNER JOIN {enrol_wds_sections} s ON p.academic_period_id = s.academic_period_id
-                INNER JOIN {enrol_wds_courses} c ON s.course_definition_id = c.course_definition_id
+                INNER JOIN {enrol_wds_courses} c ON s.course_listing_id = c.course_listing_id
             WHERE p.start_date < UNIX_TIMESTAMP(NOW())
                 AND p.end_date > UNIX_TIMESTAMP(NOW())
                 AND p.enabled = 1
@@ -1539,14 +1541,6 @@ class workdaystudent {
         // Get the data using the sql above.
         $departments = $DB->get_records_sql($sql);
 
-/*
-        // Extract the course subject abbreviations.
-        $abbreviations = array_map(function($department) {
-            return $department->course_subject_abbreviation;
-        }, $departments);
-
-        return $abbreviations;
-*/
         return $departments;
     }
 
@@ -2899,7 +2893,6 @@ class workdaystudent {
                 self::dtrace(" All enrolled teachers in $sectionid set to unenroll.");
             }
 
-            // TODO: ???? Return whatever unenrolls we did.
             return $unenrolls;
         }
 
@@ -2923,7 +2916,6 @@ class workdaystudent {
                 $data->status = $status;
 
                 // Insert the record.
-                // TODO: is this returnid right???? Or should it be false?
                 $enroll = $DB->insert_record($table, $data, $returnid = true);
                 self::dtrace(" - Inserted $universalid in $sectionid with role: " .
                     "$data->role and status: $data->status");
@@ -2958,7 +2950,6 @@ class workdaystudent {
                     return $enr;
                 } else {
                     // Update the record and log.
-                    // TODO: is this returnid right???? Or should it be false?
                     $enroll = $DB->update_record($table, $data, $returnid = true);
                     self::dtrace(" - Updated: $data->id - $universalid in " .
                         "$sectionid with role: $data->role " .
@@ -3067,7 +3058,7 @@ class workdaystudent {
                 CONCAT(u.firstname, ' ', u.lastname)
                 ORDER BY u.id ASC SEPARATOR ', '
             ) AS fullnames
-            FROM mdl_user u
+            FROM {user} u
             WHERE u.deleted = 0
             GROUP BY u.email HAVING usercount > 1";
 
@@ -3204,8 +3195,8 @@ class workdaystudent {
         }
 
         // Build the SQL.
-        $sql = "UPDATE mdl_enrol_wds_$tablesuffix $prefix
-                   INNER JOIN mdl_user u ON $prefix.$kw1 = u.$kw2
+        $sql = "UPDATE {enrol_wds_$tablesuffix} $prefix
+                   INNER JOIN {user} u ON $prefix.$kw1 = u.$kw2
                SET $prefix.userid = u.id
                WHERE $prefix.userid IS NULL
                    AND u.deleted = 0
@@ -3491,7 +3482,7 @@ class workdaystudent {
 /*
 // Delete all test courses!
 require_once($CFG->libdir . '/moodlelib.php');
-$csql = "SELECT * FROM mdl_course WHERE fullname LIKE 'WDS - %'";
+$csql = "SELECT * FROM {course} WHERE fullname LIKE 'WDS - %'";
 $courses = $DB->get_records_sql($csql);
 foreach ($courses as $course) {
     // Delete the course using Moodle's course deletion API
@@ -3502,7 +3493,7 @@ die();
 
         // Do we want our shells built with common sections merged per teacher?
         if ($s->course_grouping == 1) {
-            $uniquer = "GROUP_CONCAT(CONCAT(sec.course_definition_id,'_',tea.universal_id) ORDER BY sec.section_listing_id ASC) AS coursesections";
+            $uniquer = "GROUP_CONCAT(CONCAT(sec.course_listing_id,'_',tea.universal_id) ORDER BY sec.section_listing_id ASC) AS coursesections";
             $grouper = "GROUP BY per.id, cou.course_listing_id, tenr.universal_id";
         } else {
             $uniquer = "GROUP_CONCAT(sec.section_listing_id ORDER BY sec.section_listing_id ASC) AS coursesections";
@@ -3539,21 +3530,21 @@ die();
             GROUP_CONCAT(
                 tenr.role ORDER BY tenr.section_listing_id ASC
             ) AS roles
-            FROM mdl_enrol_wds_periods per
-                INNER JOIN mdl_enrol_wds_sections sec
+            FROM {enrol_wds_periods} per
+                INNER JOIN {enrol_wds_sections} sec
                     ON sec.academic_period_id = per.academic_period_id
-                INNER JOIN mdl_enrol_wds_courses cou
+                INNER JOIN {enrol_wds_courses} cou
                     ON sec.course_listing_id = cou.course_listing_id
-                INNER JOIN mdl_enrol_wds_teacher_enroll tenr
+                INNER JOIN {enrol_wds_teacher_enroll} tenr
                     ON sec.section_listing_id = tenr.section_listing_id
-                INNER JOIN mdl_enrol_wds_teachers tea
+                INNER JOIN {enrol_wds_teachers} tea
                     ON tenr.universal_id = tea.universal_id
             WHERE sec.controls_grading = 1
                 AND tenr.role = 'primary'
                 AND sec.academic_period_id = '$period->academic_period_id'
                 AND (sec.idnumber IS NULL OR sec.moodle_status = 'Pending')
                 $grouper
-            ORDER BY cou.course_definition_id ASC";
+            ORDER BY cou.course_listing_id ASC";
 
         // Get the data.
         $mshells = $DB->get_records_sql($sql);
@@ -3605,7 +3596,7 @@ die();
         return trim($shellname);
     }
 
-    public static function create_moodle_group($course, $mshell) {
+    public static function wds_create_moodle_groups($course, $mshell) {
         global $CFG, $DB;
 
         require_once($CFG->dirroot . '/group/lib.php');
@@ -3614,37 +3605,33 @@ die();
         $sections = explode(",", $mshell->sections);
 
         foreach ($sections as $section) {
+            // Build out the groupname.
             $groupname = "$mshell->course_subject_abbreviation $mshell->course_number $section";
+
+
+            // Build out an array of groupids.
+            $groupids = array();
 
             // Check if the group already exists in the course.
             $existinggroup = $DB->get_record('groups',
                 ['courseid' => $course->id, 'name' => $groupname], 'id');
 
-            if ($existinggroup) {
+            if (isset($existinggroup->id)) {
                 self::dtrace("  Group '$groupname' already exists in $course->fullname. Skipping.");
-                continue;
-            }
 
-            $group = new stdClass();
-            // ID of the course where the group will be created.
-            $group->courseid = $course->id;
+                // Add the existing groupid to the array.
+                $groupids[] = $existinggroup->id;
 
-            $group->name = $groupname;
-            $group->description = $mshell->course_abbreviated_title . " " . $groupname;
-            $group->timecreated = time();
-            $group->timemodified = time();
-
-            $groupid = groups_create_group($group);
-
-            if ($groupid) {
-                self::dtrace(" Course group $groupname with id: " .
-                    "$groupid added to course id: $course->id.");
                 continue;
             } else {
-                mtrace(" Error! Failed to create group: $groupname.");
-                continue;
+                // Create the group and return the groupid.
+                $groupid = self::wds_create_course_group($course->id, $groupname);
+
+                // Add the new groupid to the array of groupids.
+                $groupids[] = $groupid;
             }
         }
+        return $groupids;
     }
 
     public static function get_numeric_course_value($mshell) {
@@ -3671,7 +3658,7 @@ die();
 /*
 // Delete all test courses!
 require_once($CFG->libdir . '/moodlelib.php');
-$csql = "SELECT * FROM mdl_course WHERE fullname LIKE 'WDS - %'";
+$csql = "SELECT * FROM {course} WHERE fullname LIKE 'WDS - %'";
 $courses = $DB->get_records_sql($csql);
 foreach ($courses as $course) {
     // Delete the course using Moodle's course deletion API
@@ -3698,7 +3685,7 @@ die();
         $course->idnumber = self::build_mshell_idnumber($mshell);
         $course->category = $cat->id;
         $course->visible = $s->visible ?? 0;
-        // TODO: Make this a preference.
+        // TODO: Make this a default and user preference.
         $course->format = $s->format ?? 'topics';
         $course->groupmode = $coursedefaults->groupmode;
         $course->groupmodeforce = $coursedefaults->groupmodeforce;
@@ -3719,7 +3706,9 @@ die();
         // If it exists create some groups.
         if (isset($exists->id)) {
             self::dtrace("  $course->fullname already exists. Updating idb idnumber.");
-            $groups = self::create_moodle_group($exists, $mshell);
+
+            // Create all the groups in the course.
+            $groups = self::wds_create_moodle_groups($exists, $mshell);
         }
 
         // If it exists and the idnumbers match, update the interstitial record.
@@ -3742,7 +3731,7 @@ die();
 
             return $exists;
 
-        // TODO: This is not right!
+        // This is not right!
         } else if (isset($exists->id) && $exists->idnumber != $course->idnumber) {
             mtrace(" Error! We should never have a matching " .
                 "shortname with a mismatched idnumber!");
@@ -3756,19 +3745,28 @@ die();
 
         // If the above worked, update idnumber.
         if ($moodlecourse) {
-            // Build out the groups.
-            $groups = self::create_moodle_group($moodlecourse, $mshell);
+
+            // Build out the course groups.
+            $groups = self::wds_create_moodle_groups($moodlecourse, $mshell);
 
             self::dtrace("  Created $course->fullname. " .
                 "Updating idb idnumber.");
+
+            // Set the table.
             $sectiontable = 'enrol_wds_sections';
+
+            // We've returned a csv of sections, make them into an array.
             $sectionids = explode(",", $mshell->sectionids);
+
+            // Loop through these sections and update the corresponding idnumbers.
             foreach ($sectionids as $sectionid) {
                 $parms = [
                     'id' => $sectionid,
                     'idnumber' => $course->idnumber,
                     'moodle_status' => $moodlecourse->id
                 ];
+
+                // Do the nasty.
                 $updated = $DB->update_record($sectiontable, $parms);
             }
         }
@@ -3867,8 +3865,11 @@ die();
         return $category;
     }
 
-    public static function update_interstitial_enrollment_status($enrollment) {
+    public static function update_interstitial_enrollment_status($enrollment, $teacher = false) {
         global $DB;
+
+        // If we've sent the teacher flag, use the teacher table.
+        $table = $teacher ? 'enrol_wds_teacher_enroll' : 'enrol_wds_student_enroll'; 
 
         // Build out the object.
         $enrrecord = new stdClass();
@@ -3882,7 +3883,7 @@ die();
 
         // Do the nasty.
         $completed = $DB->update_record(
-            'enrol_wds_student_enroll',
+            $table,
             $enrrecord,
             $returnid = true
         );
@@ -4015,7 +4016,49 @@ die();
         return $missing;
     }
 
-    public static function wds_get_enrollments($period, $coursesection = null) {
+    public static function wds_get_faculty_enrollments($period) {
+        global $DB;
+
+	$sql = "SELECT tenr.id AS enrollment_id,
+            c.id AS courseid,
+            u.id AS userid,
+            tenr.universal_id,
+            cou.course_subject_abbreviation AS department,
+            cou.course_number,
+            sec.section_number,
+            CONCAT(
+                cou.course_subject_abbreviation, ' ',
+                cou.course_number, ' ',
+                sec.section_number
+            ) AS groupname,
+            tenr.role,
+            tenr.prevrole,
+            tenr.status AS moodle_enrollment_status,
+            tenr.prevstatus AS moodle_prev_status 
+            FROM {course} c
+                INNER JOIN {enrol_wds_sections} sec
+                    ON sec.idnumber = c.idnumber
+                    AND sec.moodle_status = c.id
+                INNER JOIN {enrol_wds_courses} cou
+                    ON cou.course_listing_id = sec.course_listing_id
+                INNER JOIN {enrol_wds_teacher_enroll} tenr
+                    ON sec.section_listing_id = tenr.section_listing_id
+                INNER JOIN {enrol_wds_teachers} tea
+                    ON tea.universal_id = tenr.universal_id
+                INNER JOIN {user} u
+                    ON u.id = tea.userid
+                    AND u.idnumber = tea.universal_id
+            WHERE sec.controls_grading = 1
+                AND tenr.status IN ('enroll', 'unenroll')
+                AND sec.academic_period_id = '$period->academic_period_id'
+            ORDER BY c.id ASC, tenr.id ASC";
+
+        $enrollments = $DB->get_records_sql($sql);
+
+        return $enrollments;
+    }
+
+    public static function wds_get_student_enrollments($period, $coursesection = null) {
         global $DB;
 
         $reprocesssection = is_null($coursesection) ?
@@ -4035,18 +4078,18 @@ die();
                 stuenr.prevstatus AS moodle_prev_status,
                 stuenr.registered_date AS wds_regdate,
                 tenr.universal_id AS primary_id
-            FROM mdl_enrol_wds_sections sec
-                INNER JOIN mdl_enrol_wds_courses cou
+            FROM {enrol_wds_sections} sec
+                INNER JOIN {enrol_wds_courses} cou
                     ON cou.course_listing_id = sec.course_listing_id
-                INNER JOIN mdl_course c
+                INNER JOIN {course} c
                     ON c.idnumber = sec.idnumber
                     AND sec.idnumber IS NOT NULL
-                INNER JOIN mdl_enrol_wds_student_enroll stuenr
+                INNER JOIN {enrol_wds_student_enroll} stuenr
                     ON sec.section_listing_id = stuenr.section_listing_id
-                INNER JOIN mdl_enrol_wds_teacher_enroll tenr
+                INNER JOIN {enrol_wds_teacher_enroll} tenr
                     ON tenr.section_listing_id = sec.section_listing_id
                     AND tenr.role = 'primary'
-                LEFT JOIN mdl_enrol_wds_students stu
+                LEFT JOIN {enrol_wds_students} stu
                     ON stu.universal_id = stuenr.universal_id
             WHERE sec.academic_period_id = '$period->academic_period_id'
                 AND sec.idnumber IS NOT NULL
@@ -4059,6 +4102,60 @@ die();
             $enrollments = $DB->get_records_sql($sql);
 
             return $enrollments;
+    }
+
+    public static function wds_create_course_group($courseid, $groupname) {
+        global $CFG;
+
+        // We need this to mess with groups.
+        require_once($CFG->dirroot . '/group/lib.php');
+
+        // We should always have a group, but if we don't, create it.
+        self::dtrace("Group: $groupname not found in course: $courseid, creating it,");
+
+        // Build out the group object.
+        $group = new stdClass();
+
+        // ID of the course where the group will be created.
+        $group->courseid = $courseid;
+
+        // Set the group name.
+        $group->name = $groupname;
+        $group->description = $enrollment->department_desc . " " . $groupname;
+        $group->timecreated = time();
+        $group->timemodified = time();
+
+        // Create the group.
+        $groupid = groups_create_group($group);
+        self::dtrace(" Course group $groupname with id: $groupid added to course id: $courseid.");
+
+        return $groupid;
+    }
+
+    public static function wds_create_enrollment_instance($courseid) {
+        global $DB;
+
+        self::dtrace("No enrollment instance for course: " .
+            "$courseid. Creating it.");
+
+        // Build out the enrollment instance object.
+        $enrol = new stdClass();
+        $enrol->enrol = 'workdaystudent';
+        $enrol->courseid = $courseid;
+        $enrol->status = 0;
+        $enrol->sortorder = 0;
+        $enrol->timecreated = time();
+        $enrol->timemodified = time();
+
+        // Insert new instance into DB.
+        $instanceid = $DB->insert_record('enrol', $enrol, true);
+
+        // Fetch the newly created instance.
+        $instance = $DB->get_record('enrol', ['id' => $instanceid]);
+        self::dtrace("Enrollment instance created for course: $courseid.");
+
+        // Return the instance.
+        return $instance;
     }
 
 }
@@ -4958,12 +5055,32 @@ class wdscronhelper {
         foreach ($periods as $period) {
 
             // Get all the enrollment for this period.
-            $enrollments = workdaystudent::wds_get_enrollments($period);
+            $enrollments = workdaystudent::wds_get_student_enrollments($period);
 
             // Bulk enrollment.
-            $wdsbulk = enrol_workdaystudent::wds_bulk_enrollments($enrollments);
+            $wdsbulk = enrol_workdaystudent::wds_bulk_student_enrollments($enrollments);
         }
     }
+
+    public static function cronmfenrolls() {
+        $s = workdaystudent::get_settings();
+
+        // Get the current periods.
+        $periods = workdaystudent::get_current_periods($s);
+
+        // Get the period count.
+        $periodcount = count($periods);
+        mtrace("Enrolling students for $periodcount periods.");
+        foreach ($periods as $period) {
+
+            // Get all the enrollment for this period.
+            $enrollments = workdaystudent::wds_get_faculty_enrollments($period);
+
+            // Bulk enrollment.
+            $wdsbulk = enrol_workdaystudent::wds_bulk_faculty_enrollments($enrollments);
+        }
+    }
+
 // Class end.
 }
 
@@ -4980,7 +5097,336 @@ class enrol_workdaystudent extends enrol_plugin {
         return $instance;
     }
 
-    public static function wds_bulk_enrollments($enrollments) {
+    public static function wds_bulk_faculty_enrollments($enrollments) {
+        global $CFG, $DB;
+
+        // We need this to mess with groups.
+        require_once($CFG->dirroot . '/group/lib.php');
+
+        // Set this up for timing.
+        $starttime = microtime(true);
+
+        mtrace("Faculty enrollment into Moodle courses starting.");
+
+        // Array to store instances already checked per course.
+        $checkedcourses = [];
+
+        // Instantiate the enrollment plugin.
+        $enrollplugin = enrol_get_plugin('workdaystudent');
+
+        // Set up our array counts.
+        $enrollmentcounts = [];
+        $unenrollmentcounts = [];
+        $skippedcounts = [];
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Grab the student role specified in settings.
+        $pr = $s->primaryrole;
+        $npr = $s->nonprimaryrole;
+
+// use something like this for unenrollment
+// foreach($enrollments as $enrollment) {
+//     $group = $DB->get_record('groups', ['courseid' => $enrollment->courseid,
+//         'name' => $enrollment->groupname], 'id');
+//     $groups = groups_get_user_groups($courseid, $userid);
+//     if (count($groups) > 1) {
+//         Keep emoving from groups
+//         groups_remove_member($groupid, $userid)
+//     } else {
+//         Unenroll them.
+//     }
+// }
+
+        // Loop through the enrollments.
+        foreach ($enrollments as $enrollment) {
+
+            // Set these for later.
+            $userid = $enrollment->userid;
+            $courseid = $enrollment->courseid;
+            $roleid = $enrollment->role === 'primary' ? $pr : $npr;
+            $prevrole = $enrollment->prevrole;
+            $status = $enrollment->moodle_enrollment_status;
+            $prevstatus = $enrollment->moodle_prev_status;
+
+            // Check if we've already retrieved/created the instance for this course.
+            if (!isset($checkedcourses[$courseid])) {
+
+                // Try to get existing instance.
+                $instance = $DB->get_record('enrol',
+                    ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
+
+                // If no instance exists, create a new one.
+                if (!$instance) {
+                    $instance = workdaystudent::wds_create_enrollment_instance($courseid);
+                }
+
+                // Store instance in array to avoid checking again.
+                $checkedcourses[$courseid] = $instance;
+            } else {
+                // Re-use previously retrieved instance.
+                $instance = $checkedcourses[$courseid];
+            }
+
+            // Build out the expected groupname for this course enrollment.
+            $groupname = $enrollment->groupname;
+
+            // Find the group by name in the course.
+            $group = $DB->get_record('groups', ['courseid' => $courseid, 'name' => $groupname]);
+
+            // We found a matching group.
+            if (isset($group->id)) {
+                $groupid = $group->id;
+
+            // We do not have a matching group in the course.
+            } else {
+
+                // We should always have a group, but if we don't, create it.
+                $groupid = workdaystudent::wds_create_course_group($courseid, $groupname);
+            }
+
+            // Enrollment follows.
+            if ($status == 'enroll') {
+
+                // If we don't have any enrollments for this course, set it to 0.
+                if (!isset($enrollmentcounts[$courseid])) {
+                    $enrollmentcounts[$courseid] = 0;
+                }
+
+                // We're trying to enroll a skipped user.
+                if (is_null($enrollment->userid)) {
+                    // If we have no skipped for this course, set it to 0;
+                    if (!isset($skippedcounts[$courseid])) {
+                        $skippedcounts[$courseid] = 0;
+                    }
+
+                    // We have a skipped enrollment.
+                    $skippedcounts[$courseid]++;
+
+                    mtrace("\n" . 'Error! ' .
+                        $enrollment->universal_id .
+                        ' is missing their email, they were not enrolled in ' .
+                        $enrollment->department . ' ' .
+                        $enrollment->course_number . ' ' .
+                        $enrollment->section_number .
+                        ' - courseid: ' .
+                        $enrollment->courseid . '.');
+
+                    continue;
+                }
+
+                // Increment enrollments for this courseid.
+                $enrollmentcounts[$courseid]++;
+
+                // Check if the user is already enrolled.
+                $enrolled = $DB->get_record('user_enrolments',
+                    ['enrolid' => $instance->id, 'userid' => $userid]);
+
+                // If they are enrolled, we should have had that stored in the idb.
+                if ($enrolled) {
+
+                    // Update the interstitial enrollment record.
+                    $updated = workdaystudent::update_interstitial_enrollment_status($enrollment, true);
+
+                    // Add the user to the group in case they're not in the group.
+                    groups_add_member($groupid, $userid);
+                    workdaystudent::dtrace(" User id: $userid added to group id: $groupid.");
+
+                    // Always log if a failure happens.
+                    if ($updated) {
+                        continue;
+                    } else {
+                        mtrace(' Interstitial update failed for user: ' .
+                            $userid . ' in course: ' . $courseid .
+                            ' with role: ' .  $roleid . '.');
+                        continue;
+                    }
+                }
+
+                // Do the nasty.
+                $enrollplugin->enrol_user($instance, $userid, $roleid);
+                workdaystudent::dtrace(" User id: $userid enrolled into course id: $instance->courseid.");
+
+                // Update the insterstitial status.
+                $updated = workdaystudent::update_interstitial_enrollment_status($enrollment, true);
+
+                // If something goes wrong, always log it.
+                if (!$updated) {
+                    mtrace(' Interstitial update failed for user: ' .
+                        $userid . ' in course: ' . $courseid .
+                        ' with role: ' . $roleid . '.');
+                }
+
+                // Add the user to the group.
+                groups_add_member($groupid, $userid);
+                workdaystudent::dtrace(" User id: $userid added to group id: $groupid.");
+
+            // Let's deal with unenrollments.
+            } else if ($enrollment->moodle_enrollment_status == 'unenroll') {
+
+                // If we don't have any unenrollments for this course, set it to 0.
+                if (!isset($unenrollmentcounts[$courseid])) {
+                    $unenrollmentcounts[$courseid] = 0;
+                }
+
+                // We're trying to unenroll a skipped user.
+                if (is_null($enrollment->userid)) {
+                    // If we have no skipped for this course, set it to 0;
+                    if (!isset($skippedcounts[$courseid])) {
+                        $skippedcounts[$courseid] = 0;
+                    }
+
+                    // We have a skipped unenrollment.
+                    $skippedcounts[$courseid]++;
+
+
+                    mtrace("\n" . 'Error! ' .
+                        $enrollment->student_id .
+                        ' is missing their email, they were not enrolled in ' .
+                        $enrollment->department . ' ' .
+                        $enrollment->course_number . ' ' .
+                        $enrollment->section_number .
+                        ' - courseid: ' .
+                        $enrollment->courseid . '.');
+
+                    continue;
+                }
+
+                // Increment enrollments for this courseid.
+                $enrollmentcounts[$courseid]++;
+
+                // Check if the user is already enrolled.
+                $enrolled = $DB->get_record('user_enrolments',
+                    ['enrolid' => $instance->id, 'userid' => $userid]);
+
+                // If they are enrolled, we should have had that stored in the idb.
+                if ($enrolled) {
+
+                    // Update the interstitial enrollment record.
+                    $updated = workdaystudent::update_interstitial_enrollment_status($enrollment, true);
+
+                    // Add the user to the group in case they're not in the group.
+                    groups_add_member($groupid, $userid);
+                    workdaystudent::dtrace(" User id: $userid added to group id: $groupid.");
+
+                    // Always log if a failure happens.
+                    if ($updated) {
+                        continue;
+                    } else {
+                        mtrace(' Interstitial update failed for user: ' .
+                            $userid . ' in course: ' . $courseid .
+                            ' with role: ' .  $roleid . '.');
+                        continue;
+                    }
+                }
+
+                // Do the nasty.
+                $enrollplugin->enrol_user($instance, $userid, $roleid, $enrollment);
+                workdaystudent::dtrace(" User id: $userid enrolled into course id: $instance->courseid.");
+
+                // Update the insterstitial status.
+                $updated = workdaystudent::update_interstitial_enrollment_status($enrollment, true);
+
+                // If something goes wrong, always log it.
+                if (!$updated) {
+                    mtrace(' Interstitial update failed for user: ' .
+                        $userid . ' in course: ' . $courseid .
+                        ' with role: ' . $roleid . '.');
+                }
+
+                // Add the user to the group.
+
+                groups_add_member($groupid, $userid);
+                workdaystudent::dtrace(" User id: $userid added to group id: $groupid.");
+
+            // Let's deal with unenrollments.
+//TODO: REMOVEME
+$unenrollmentcounts[$courseid] = 0;
+
+/*
+            } else if ($enrollment->moodle_enrollment_status == 'unenroll') {
+
+                // If we don't have any unenrollments for this course, set it to 0.
+                if (!isset($unenrollmentcounts[$courseid])) {
+                    $unenrollmentcounts[$courseid] = 0;
+                }
+
+                // We're trying to unenroll a skipped user.
+                if (is_null($enrollment->userid)) {
+                    // If we have no skipped for this course, set it to 0;
+                    if (!isset($skippedcounts[$courseid])) {
+                        $skippedcounts[$courseid] = 0;
+                    }
+
+                    // We have a skipped unenrollment.
+                    $skippedcounts[$courseid]++;
+
+                    mtrace("\n" . 'Error! ' .
+                        $enrollment->student_id .
+                        ' is missing their email, they were not unenrolled from ' .
+                        $enrollment->department . ' ' .
+                        $enrollment->course_number . ' ' .
+                        $enrollment->section_number .
+                        ' - courseid: ' .
+                        $enrollment->courseid . '.');
+
+                    continue;
+                }
+
+                // Increment unenrollments for this courseid.
+                $unenrollmentcounts[$courseid]++;
+
+                if (!isset($s->suspend) || $s->suspend == 0) {
+                    // Do the nasty.
+                    $enrollplugin->unenrol_user($instance, $userid);
+                    workdaystudent::dtrace(" User id: $userid unenrolled from course id: $instance->courseid.");
+                } else {
+                    $enrollplugin->update_user_enrol($instance->id, $userid, ENROL_USER_SUSPENDED);
+                    workdaystudent::dtrace(" User id: $userid suspended from course id: $instance->courseid.");
+                }
+                // Update the insterstitial status.
+                $updated = workdaystudent::update_interstitial_enrollment_status($enrollment, true);
+
+                // If something goes wrong, log it.
+                if (!$updated) {
+                    workdaystudent::dtrace(' Interstitial update failed for user: ' .
+                        $userid . ' in course: ' . $courseid .
+                        ' with role: ' . $roleid . '.');
+                }
+*/
+
+            }
+        }
+
+        // Combine enrollments and unenrollments into a single output loop.
+        $allcourses = array_unique(array_merge(
+            array_keys($enrollmentcounts),
+            array_keys($unenrollmentcounts),
+            array_keys($skippedcounts)
+        ));
+
+        mtrace("\nEnrollment Summary Begins");
+        // Let us know how it went.
+        foreach ($allcourses as $coursed) {
+            $enrolls = $enrollmentcounts[$coursed] ?? 0;
+            $unenrolls = $unenrollmentcounts[$coursed] ?? 0;
+            $skipped = $skippedcounts[$coursed] ?? 0;
+            mtrace(" Course $coursed had $enrolls enrollments," .
+               " $unenrolls unenrollments," .
+               " $skipped skipped due to missing emails.");
+        }
+        mtrace("Enrollment Summary Complete");
+
+        // Get the elapsed time.
+        $elapsedtime = round(microtime(true) - $starttime, 2);
+
+        mtrace("Enrollment into Moodle courses took $elapsedtime seconds.");
+
+        return true;
+    }
+
+    public static function wds_bulk_student_enrollments($enrollments) {
         global $CFG, $DB;
 
         // Set this up for timing.
@@ -5026,24 +5472,7 @@ class enrol_workdaystudent extends enrol_plugin {
 
                 // If no instance exists, create a new one.
                 if (!$instance) {
-                    workdaystudent::dtrace("No enrollment instance for course: " .
-                        "$courseid. Creating it.");
-
-                    // Build out the enrollment instance object.
-                    $enrol = new stdClass();
-                    $enrol->enrol = 'workdaystudent';
-                    $enrol->courseid = $courseid;
-                    $enrol->status = 0;
-                    $enrol->sortorder = 0;
-                    $enrol->timecreated = time();
-                    $enrol->timemodified = time();
-
-                    // Insert new instance into DB.
-                    $instanceid = $DB->insert_record('enrol', $enrol, true);
-
-                    // Fetch the newly created instance.
-                    $instance = $DB->get_record('enrol', ['id' => $instanceid]);
-                    workdaystudent::dtrace("Enrollment instance created for course: $courseid.");
+                    $instance = workdaystudent::wds_create_enrollment_instance($courseid);
                 }
 
                 // Store instance in array to avoid checking again.
@@ -5063,24 +5492,8 @@ class enrol_workdaystudent extends enrol_plugin {
             // We do not have a matching group in the course.
             if (!$group) {
 
-                // TODO: We should always have a group, but if we don't, create it.
-                workdaystudent::dtrace("Group: $groupname not found in course: $courseid, creating it,");
-
-                // Build out the group object.
-                $newgroup = new stdClass();
-
-                // ID of the course where the group will be created.
-                $newgroup->courseid = $courseid;
-
-                // Set the group name.
-                $newgroup->name = $groupname;
-                $newgroup->description = $enrollment->department_desc . " " . $groupname;
-                $newgroup->timecreated = time();
-                $newgroup->timemodified = time();
-
-                // Create the group.
-                $newgroupid = groups_create_group($newgroup);
-                workdaystudent::dtrace(" Course group $groupname with id: $newgroupid added to course id: $courseid.");
+                // We don't have a group, create it.
+                $groupid = workdaystudent::wds_create_course_group($courseid, $groupname);
             }
 
             $groupid = isset($group->id) ? $group->id : $newgroupid;
