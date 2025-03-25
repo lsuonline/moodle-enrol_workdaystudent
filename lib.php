@@ -85,11 +85,14 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Create and update moodle users.
         $cronstucreate = wdscronhelper::cronmusers();
 
+        // Process wds enrollments.
+        $cronstuenroll = wdscronhelper::cronstuenroll();
+
         // Create course shells.
         $cronshells = wdscronhelper::cronmcourses();
 
-        // Process student enrollments. TODO: Fetch missing student datas.
-        $cronstuenroll = wdscronhelper::cronstuenroll();
+        // Enroll the faculty.
+        $cronfenroll = wdscronhelper::cronmfenrolls();
 
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls();
@@ -139,14 +142,17 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process students.
         $cronstudents = wdscronhelper::cronstudents();
 
-        // Process student enrollments. TODO: Fetch missing students.
-        $cronstuenroll = wdscronhelper::cronstuenroll();
-
         // Create and update moodle students.
         $cronstucreate = wdscronhelper::cronmusers();
 
+        // Process student enrollments.
+        $cronstuenroll = wdscronhelper::cronstuenroll();
+
         // Create course shells.
         $cronshells = wdscronhelper::cronmcourses();
+
+        // Enroll the faculty.
+        $cronfenroll = wdscronhelper::cronmfenrolls();
 
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls();

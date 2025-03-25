@@ -101,10 +101,10 @@
         <FIELD NAME="program_of_study" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
-        <KEY NAME="wds_pgm_psc_uq" TYPE="unique" FIELDS="program_of_study_code"/>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
+        <INDEX NAME="wds_pgm_psc_ix" UNIQUE="false" FIELDS="program_of_study_code"/>
         <INDEX NAME="wds_pgm_aui_ix" UNIQUE="false" FIELDS="academic_unit_id"/>
       </INDEXES>
     </TABLE>
