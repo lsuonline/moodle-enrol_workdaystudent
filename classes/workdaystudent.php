@@ -3069,6 +3069,7 @@ class workdaystudent {
 
         return $dupes;
     }
+
     public static function mass_mstudent_updates() {
         global $CFG, $DB;
 

@@ -24,11 +24,21 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// Set the string for use later.
+$fn = 'WDS Config';//new lang_string('foldername', 'block_pu');
+
+// Create the folder / submenu.
+$ADMIN->add('enrolments', new admin_category('enrollwdsfolder', $fn));
+
+// Create the settings block.
+$settings = new admin_settingpage($section, 'WDS Config');//get_string('settings'));
+
 if ($ADMIN->fulltree) {
 
     $studentroles = array();
 
     if (isset($CFG->gradebookroles)) {
+
         // Get the "student" roles.
         $roles = explode(',', $CFG->gradebookroles);
     } else {
@@ -37,8 +47,10 @@ if ($ADMIN->fulltree) {
 
     // Loop through those roles and do stuff.
     foreach ($roles as $role) {
+
         // Grab the role names from the DB.
         $rname = $DB->get_record('role', array("id" => $role));
+
         // Set the studentroles array for the dropdown.
         $studentroles[$role] = $rname->name === "" ? $rname->shortname : $rname->name;
     }
@@ -46,6 +58,7 @@ if ($ADMIN->fulltree) {
     $facultyroles = array();
 
     if (isset($CFG->coursecontact)) {
+
         // Get the "teacher" roles.
         $froles = explode(',', $CFG->coursecontact);
     } else {
@@ -54,8 +67,10 @@ if ($ADMIN->fulltree) {
 
     // Loop through those roles and do stuff.
     foreach ($froles as $frole) {
+
         // Grab the role names from the DB.
         $frname = $DB->get_record('role', array("id" => $frole));
+
         // Set the studentroles array for the dropdown.
         $facultyroles[$frole] = $frname->name === "" ? $frname->shortname : $frname->name;
     }
@@ -68,6 +83,7 @@ if ($ADMIN->fulltree) {
 
     // Loop through those roles and do stuff.
     foreach ($ccategories as $category) {
+
         // Set the studentroles array for the dropdown.
         $categories[$category->id] = $category->name;
     }
@@ -435,4 +451,32 @@ if ($ADMIN->fulltree) {
             'admin,student', PARAM_TEXT
         )
     );
+}
+
+// Add the folder.
+$ADMIN->add('enrollwdsfolder', $settings);
+
+// Prevent Moodle from adding settings block in standard location.
+$settings = null;
+
+// Set the url for the period config page.
+$wdsperiods = new admin_externalpage(
+    'period_config',
+    new lang_string('workdaystudent:periodconfig', 'enrol_workdaystudent'),
+    new moodle_url('/enrol/workdaystudent/periodconfig.php')
+);
+
+// Set the url for the update students page.
+$wdsstupdates = new admin_externalpage(
+    'update_students',
+    new lang_string('wds:updatestudents', 'enrol_workdaystudent'),
+    new moodle_url('/enrol/workdaystudent/updatestudents.php')
+);
+
+$context = \context_system::instance();
+
+// Add the link for those who have access.
+if (has_capability('moodle/site:config', $context)) {
+    $ADMIN->add('enrollwdsfolder', $wdsperiods);
+    $ADMIN->add('enrollwdsfolder', $wdsstupdates);
 }

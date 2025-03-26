@@ -28,6 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 // The basics.
 $string['pluginname'] = 'Workday Student Enrollment';
 $string['pluginname_desc'] = 'LSU Workday Student Enrollment';
+$string['workdaystudent:periodconfig'] = 'Period Configuration';
 $string['reprocess'] = 'Reprocess Workday Student';
 $string['workdaystudent:reprocess'] = 'Reprocess Workday Student';
 $string['workdaystudent:delete'] = 'Delete Workday Student';
@@ -121,3 +122,24 @@ $string['workdaystudent:emailname'] = 'WorkdayStudent Enrollment Administrator';
 // End user settings.
 $string['workdaystudent:visibleonsemdate'] = 'Courses visibility';
 $string['workdaystudent:visibleonsemdate_desc'] = "Courses will be made visible on the semester start date.";
+
+// Config / extra page strings.
+$string['wds:academic_period'] = 'Period';
+$string['wds:academic_period_id'] = 'Academic Period ID';
+$string['wds:academic_year'] = 'Academic Year';
+$string['wds:period_year'] = 'Year';
+$string['wds:period_type'] = 'Type';
+$string['wds:start_date'] = 'Start Date';
+$string['wds:end_date'] = 'End Date';
+$string['wds:enabled'] = 'Enabled';
+$string['wds:updatestudents'] = 'Update Students';
+$string['wds:updatestudents_desc'] = 'Update moodle students en masse based on data in the interstitial database.';
+$string['wds:updateteachers'] = 'Update Teachers';
+$string['wds:updateteachers_desc'] = 'Update moodle teachers en masse based on data in the interstitial database.';
+$string['wds:runstudentupdate'] = 'Student Updates';
+$string['wds:runteacherupdate'] = 'Teacher Updates';
+$string['wds:massupdate_ssuccess'] = 'Successfully updated all students to match their interstitial DB counterparts.';
+$string['wds:massupdate_sfail'] = 'Student updates failed!';
+$string['wds:massupdate_fsuccess'] = 'Successfully updated all faculty to match their interstitial DB counterparts.';
+$string['wds:massupdate_ffail'] = 'Faculty updates failed!';
+$string['wds:massupdate_dberror'] = 'Database Error!';
