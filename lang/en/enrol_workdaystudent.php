@@ -124,6 +124,8 @@ $string['workdaystudent:visibleonsemdate'] = 'Courses visibility';
 $string['workdaystudent:visibleonsemdate_desc'] = "Courses will be made visible on the semester start date.";
 
 // Config / extra page strings.
+$string['wds:sshortname'] = 'WDS Settings';
+$string['wds:cshortname'] = 'WDS Config';
 $string['wds:academic_period'] = 'Period';
 $string['wds:academic_period_id'] = 'Academic Period ID';
 $string['wds:academic_year'] = 'Academic Year';
@@ -132,6 +134,7 @@ $string['wds:period_type'] = 'Type';
 $string['wds:start_date'] = 'Start Date';
 $string['wds:end_date'] = 'End Date';
 $string['wds:enabled'] = 'Enabled';
+$string['wds:updateusers'] = 'Update Users';
 $string['wds:updatestudents'] = 'Update Students';
 $string['wds:updatestudents_desc'] = 'Update moodle students en masse based on data in the interstitial database.';
 $string['wds:updateteachers'] = 'Update Teachers';

@@ -25,24 +25,28 @@
 defined('MOODLE_INTERNAL') || die();
 
 // Set the string for use later.
-$fn = 'WDS Config';//new lang_string('foldername', 'block_pu');
+$fn = new lang_string('wds:sshortname', 'enrol_workdaystudent');
 
 // Create the folder / submenu.
 $ADMIN->add('enrolments', new admin_category('enrollwdsfolder', $fn));
 
-// Create the settings block.
-$settings = new admin_settingpage($section, 'WDS Config');//get_string('settings'));
+// Create the settings page.
+$settings = new admin_settingpage($section, get_string('wds:cshortname', 'enrol_workdaystudent'));
 
+// Only for admins.
 if ($ADMIN->fulltree) {
 
-    $studentroles = array();
+    // Build the studenroles array.
+    $studentroles = [];
 
+    // Make sure they are set 1st.
     if (isset($CFG->gradebookroles)) {
 
         // Get the "student" roles.
         $roles = explode(',', $CFG->gradebookroles);
     } else {
-        $roles = array();
+        // Build an empty array…for…reasons.
+        $roles = [];
     }
 
     // Loop through those roles and do stuff.
@@ -55,14 +59,17 @@ if ($ADMIN->fulltree) {
         $studentroles[$role] = $rname->name === "" ? $rname->shortname : $rname->name;
     }
 
-    $facultyroles = array();
+    // Build the faculty roles array.
+    $facultyroles = [];
 
+    // Make sure we have course contacts.
     if (isset($CFG->coursecontact)) {
 
         // Get the "teacher" roles.
         $froles = explode(',', $CFG->coursecontact);
     } else {
-        $froles = array();
+        // Build the empty array for…reasons.
+        $froles = [];
     }
 
     // Loop through those roles and do stuff.
@@ -249,7 +256,7 @@ if ($ADMIN->fulltree) {
             get_string('workdaystudent:suspend_unenroll', 'enrol_workdaystudent'),
             get_string('workdaystudent:suspend_unenroll_desc', 'enrol_workdaystudent'),
             0,  // Default.
-            array(0 => 'suspend', 1 => 'unenroll')
+            [0 => 'suspend', 1 => 'unenroll']
         )
     );
 
@@ -469,13 +476,14 @@ $wdsperiods = new admin_externalpage(
 // Set the url for the update students page.
 $wdsstupdates = new admin_externalpage(
     'update_students',
-    new lang_string('wds:updatestudents', 'enrol_workdaystudent'),
+    new lang_string('wds:updateusers', 'enrol_workdaystudent'),
     new moodle_url('/enrol/workdaystudent/updatestudents.php')
 );
 
+// Set the context for later use.
 $context = \context_system::instance();
 
-// Add the link for those who have access.
+// Add the links for those who have access (admins for now).
 if (has_capability('moodle/site:config', $context)) {
     $ADMIN->add('enrollwdsfolder', $wdsperiods);
     $ADMIN->add('enrollwdsfolder', $wdsstupdates);
