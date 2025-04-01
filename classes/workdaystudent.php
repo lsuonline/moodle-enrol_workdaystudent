@@ -48,15 +48,12 @@ class workdaystudent {
     }
 
     /**
-     * Retrieves faculty preferences for a given user,
-     * falling back to global config if needed.
+     * Retrieves faculty preferences for a given user.
      *
-     * This function fetches user preferences related to 'wdspref_' from the database
-     * and ensures that the values are returned as integers. If preferences are missing,
-     * it substitutes them with global settings.
+     * If personal preferences are missing, return the global settings or fallbacks.
      *
-     * @param @int $userid
-     * @return @object
+     * @param int $userid The user ID.
+     * @return stdClass An object containing the user's preferences.
      */
     public static function wds_get_faculty_preferences($userid) {
         global $DB;
@@ -66,36 +63,35 @@ class workdaystudent {
             throw new invalid_parameter_exception('Invalid user ID provided.');
         }
 
-        // Set the parms.
-        $parms = [$userid];
         // Retrieve user preferences related to 'wdspref_'.
-        $sql = "SELECT *
-            FROM {user_preferences}
+        $sql = "SELECT * FROM {user_preferences}
             WHERE name LIKE 'wdspref_%'
                 AND userid = ?";
 
-        // Get the prefs.
-        $preferences = $DB->get_records_sql($sql, $parms);
+        // Get the data.
+        $preferences = $DB->get_records_sql($sql, [$userid]);
 
         // Get global settings.
-        $settings = self::get_settings();
+        $s = self::get_settings();
 
-        // Initialize preferences with global defaults.
+        // Define default values.
+        $defaults = [
+            'wdspref_createprior' => isset($s->createprior) ? (int) $s->createprior : 14,
+            'wdspref_enrollprior' => isset($s->enrollprior) ? (int) $s->enrollprior : 7,
+            'wdspref_courselimit' => isset($s->numberthreshold) ? (int) $s->numberthreshold : 5000
+        ];
+
+        // Initialize user preferences with defaults.
         $userprefs = new stdClass();
+        foreach ($defaults as $key => $value) {
+            $shortkey = str_replace('wdspref_', '', $key);
+            $userprefs->$shortkey = $value;
+        }
 
-        // Set these up.
-        $userprefs->createprior = isset($settings->createprior) ?
-            (int) $settings->createprior : 0;
-        $userprefs->enrollprior = isset($settings->enrollprior) ?
-            (int) $settings->enrollprior : 0;
-
-        // Loop through retrieved preferences and override defaults if found.
+        // Override defaults with retrieved preferences.
         foreach ($preferences as $pref) {
-            if ($pref->name === 'wdspref_createprior') {
-                $userprefs->createprior = (int) $pref->value;
-            } elseif ($pref->name === 'wdspref_enrollprior') {
-                $userprefs->enrollprior = (int) $pref->value;
-            }
+            $shortkey = str_replace('wdspref_', '', $pref->name);
+            $userprefs->$shortkey = (int) $pref->value;
         }
 
         return $userprefs;
@@ -3587,6 +3583,7 @@ class workdaystudent {
             cou.academic_level,
             sec.class_type,
             tea.universal_id,
+            tea.userid,
             tea.username,
             tea.email,
             tea.preferred_firstname,
@@ -5182,7 +5179,6 @@ class wdscronhelper {
         $periodcount = count($periods);
         mtrace("Creating courses for $periodcount periods.");
 
-        $threshold = $s->numberthreshold;
          
         // Loop through them.
         foreach ($periods as $period) {
@@ -5201,17 +5197,38 @@ class wdscronhelper {
 
                     // Generate the course name. 
                     $mshell->fullname = workdaystudent::process_shell_name($s, $mshell);
+
+                    // Generate the numerical course number for threshold checks.
                     $mshell->numerical_value = workdaystudent::get_numeric_course_value($mshell);
 
-                    // TODO: Short circuit this for now, get user prefs or CFG based on teacher universal id.
-                    if ($mshell->numerical_value >= $threshold) {
+                    // Get the faculty preferences.
+                    $userprefs = workdaystudent::wds_get_faculty_preferences($mshell->userid);
+
+                    // Set the course number threshold.
+                    $cnthreshold = $userprefs->courselimit;
+                    $sdthreshold = $userprefs->createprior;
+
+                    // Use the user (if they have) or site course number threshold.
+                    if ($mshell->numerical_value >= $cnthreshold) {
                             $skippedcount++;
-			    workdaystudent::dtrace("$mshell->fullname" .
-                                " not created due to $mshell->numerical_value > $threshold.");
+                            workdaystudent::dtrace(
+                                "$mshell->fullname not created due to " .
+                                "$mshell->numerical_value > $cnthreshold."
+                            );
                         continue;
+
+                    // Use the user (if they have) or site create prior threshold.
+                    } else if (((int) $mshell->start_date - (86400 * $sdthreshold)) < $time()) {
+                            $skippedcount++;
+                            workdaystudent::dtrace(                                                                                             "$mshell->fullname not created due to start date " .
+                                "being sooner than $sdthreshold days from now."
+                            );
+                        continue;
+
+                    // The course is within the number and creation date thresholds, create it.
                     } else {
                             $createdcount++;
-			    workdaystudent::dtrace("  Creating $mshell->fullname.");
+                            workdaystudent::dtrace("  Creating $mshell->fullname.");
 
                             // Create the shell.
                             $courseshell = workdaystudent::create_moodle_shell($mshell);
