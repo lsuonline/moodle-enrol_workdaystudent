@@ -47,6 +47,60 @@ class workdaystudent {
         return $s;
     }
 
+    /**
+     * Retrieves faculty preferences for a given user,
+     * falling back to global config if needed.
+     *
+     * This function fetches user preferences related to 'wdspref_' from the database
+     * and ensures that the values are returned as integers. If preferences are missing,
+     * it substitutes them with global settings.
+     *
+     * @param @int $userid
+     * @return @object
+     */
+    public static function wds_get_faculty_preferences($userid) {
+        global $DB;
+
+        // Validate user ID.
+        if (!is_numeric($userid) || $userid <= 0) {
+            throw new invalid_parameter_exception('Invalid user ID provided.');
+        }
+
+        // Set the parms.
+        $parms = [$userid];
+        // Retrieve user preferences related to 'wdspref_'.
+        $sql = "SELECT *
+            FROM {user_preferences}
+            WHERE name LIKE 'wdspref_%'
+                AND userid = ?";
+
+        // Get the prefs.
+        $preferences = $DB->get_records_sql($sql, $parms);
+
+        // Get global settings.
+        $settings = self::get_settings();
+
+        // Initialize preferences with global defaults.
+        $userprefs = new stdClass();
+
+        // Set these up.
+        $userprefs->createprior = isset($settings->createprior) ?
+            (int) $settings->createprior : 0;
+        $userprefs->enrollprior = isset($settings->enrollprior) ?
+            (int) $settings->enrollprior : 0;
+
+        // Loop through retrieved preferences and override defaults if found.
+        foreach ($preferences as $pref) {
+            if ($pref->name === 'wdspref_createprior') {
+                $userprefs->createprior = (int) $pref->value;
+            } elseif ($pref->name === 'wdspref_enrollprior') {
+                $userprefs->enrollprior = (int) $pref->value;
+            }
+        }
+
+        return $userprefs;
+    }
+
     public static function get_students($s, $periodid, $studentid) {
         // Log what we're doing.
         mtrace("Fetching students from webservice endpoint.");
@@ -58,7 +112,7 @@ class workdaystudent {
         $endpoint = 'students';
 
         // Set some aprms up.
-        $parms = array();
+        $parms = [];
 
         // Set the required campus id.
         $parms['Institution!Academic_Unit_ID'] = $s->campus;
@@ -138,7 +192,7 @@ class workdaystudent {
         $endpoint = 'dates';
 
         // Set some parms up.
-        $parms = array();
+        $parms = [];
         $parms['Academic_Period!Academic_Period_ID'] = $period->Academic_Period_ID;
         $parms['format'] = 'json';
 
@@ -156,7 +210,7 @@ class workdaystudent {
         $endpoint = 'dates';
 
         // Set some parms up.
-        $parms = array();
+        $parms = [];
         $parms['Academic_Period!Academic_Period_ID'] = $period->Academic_Period_ID;
         $parms['format'] = 'json';
 
@@ -168,7 +222,7 @@ class workdaystudent {
 
         // Build the date object.
         $dateobj = new stdClass();
-        $dateobjs = array();
+        $dateobjs = [];
 
         // Add the academic period id.
         $dateobj->academic_period_id = $period->Academic_Period_ID;
@@ -194,7 +248,7 @@ class workdaystudent {
         return $dateobj;
     }
 
-    // TODO: Deprecated, please remove.
+    // TODO: Possibly deprecated, please remove.
     public static function clean_honors_grade($grade) {
         // First get universal ID.
         preg_match('/^(.+)\s+\((HNR)\)/', $grade, $matches);
@@ -230,7 +284,7 @@ class workdaystudent {
         $table = 'enrol_wds_periods';
 
         // Set the parameters.
-        $parms = array('academic_period_id' => $period->Academic_Period_ID);
+        $parms = ['academic_period_id' => $period->Academic_Period_ID];
 
         // Get the academic unit record.
         $ap = $DB->get_record($table, $parms);
@@ -245,9 +299,9 @@ class workdaystudent {
         $table = 'enrol_wds_pgc_dates';
 
         // Set the parameters.
-        $parms = array('academic_period_id' => $date->academic_period_id,
+        $parms = ['academic_period_id' => $date->academic_period_id,
             'academic_level' => $date->Acad_Level,
-            'date_type' => $date->Date_Control);
+            'date_type' => $date->Date_Control];
 
         // Get the academic unit record.
         $ap = $DB->get_record($table, $parms);
@@ -264,7 +318,7 @@ class workdaystudent {
         $table = 'enrol_wds_units';
 
         // Set the parameters.
-        $parms = array('academic_unit_id' => $unit->Academic_Unit_ID);
+        $parms = ['academic_unit_id' => $unit->Academic_Unit_ID];
 
         // Get the academic unit record.
         $au = $DB->get_record($table, $parms);
@@ -274,7 +328,7 @@ class workdaystudent {
 
     public static function get_academic_year($period) {
         // Set this to avoid issues.8
-        $ayear = array();
+        $ayear = [];
 
         if (!isset($period->Academic_Year)) {
             var_dump($period);
@@ -463,7 +517,7 @@ class workdaystudent {
         $table = 'enrol_wds_sections';
 
         // Set the parameters.
-        $parms = array('section_listing_id' => $section->Section_Listing_ID);
+        $parms = ['section_listing_id' => $section->Section_Listing_ID];
 
         // Get the academic unit record.
         $as = $DB->get_record($table, $parms);
@@ -479,7 +533,7 @@ class workdaystudent {
         $table = 'enrol_wds_courses';
 
         // Set the parameters.
-        $parms = array('course_listing_id' => $course->Course_Listing_ID);
+        $parms = ['course_listing_id' => $course->Course_Listing_ID];
 
         // Get the academic unit record.
         $ac = $DB->get_record($table, $parms);
@@ -807,7 +861,7 @@ class workdaystudent {
         $table = 'enrol_wds_student_enroll';
 
         // Set the parameters.
-        $parms = array('section_listing_id' => $enrollment->Section_Listing_ID, 'universal_id' => $enrollment->Universal_Id);
+        $parms = ['section_listing_id' => $enrollment->Section_Listing_ID, 'universal_id' => $enrollment->Universal_Id];
 
         // Get the enrollment record.
         $as = $DB->get_record($table, $parms);
@@ -985,7 +1039,7 @@ class workdaystudent {
     }
 
     public static function insert_update_section_schedule($schedules) {
-        $sss = array();
+        $sss = [];
         foreach ($schedules as $schedule) {
             // Check to see if we have a matching section.
             $ss = self::check_section_schedule($schedule);
@@ -1010,10 +1064,10 @@ class workdaystudent {
         $table = 'enrol_wds_section_meta';
 
         // Set the parameters.
-        $parms = array(
+        $parms = [
             'section_listing_id' => $schedule->section_listing_id,
             'day' => $schedule->day
-        );
+        ];
 
         // Get the academic unit record.
         $ss = $DB->get_record($table, $parms);
@@ -1590,7 +1644,7 @@ class workdaystudent {
         $endpoint = 'registrations';
 
         // Set up the paramaters array.
-        $parms = array();
+        $parms = [];
 
         // Set some more parms up.
         if (!is_null($fdate)) {
@@ -1646,7 +1700,7 @@ class workdaystudent {
         $success = $DB->execute($sql);
 
         // Build the $pgms array for future use.
-        $pgms = array();
+        $pgms = [];
 
         // If we successfully truncated, insert data.
         if ($success) {
@@ -1667,7 +1721,7 @@ class workdaystudent {
 
     public static function insert_update_programs($programs) {
         // Build the $pgms array for future use.
-        $pgms = array();
+        $pgms = [];
 
         // Get the program data.
         foreach ($programs as $program) {
@@ -1726,8 +1780,8 @@ class workdaystudent {
         $table = 'enrol_wds_programs';
 
         // Set the parameters.
-        $parms = array('academic_unit_id' => $program->Academic_Unit_ID,
-                       'program_of_study_code' => $program->Program_of_Study_Code);
+        $parms = ['academic_unit_id' => $program->Academic_Unit_ID,
+                       'program_of_study_code' => $program->Program_of_Study_Code];
 
         // Get the program record.
         $pgm = $DB->get_record($table, $parms);
@@ -1742,17 +1796,17 @@ class workdaystudent {
         $table = 'enrol_wds_programs';
 
         // Set the singular data object.
-        $dataobj = array(
+        $dataobj = [
             'academic_unit_id' => $program->Academic_Unit_ID,
             'program_of_study_code' => $program->Program_of_Study_Code,
             'program_of_study' => $program->Program_of_Study
-        );
+        ];
 
         // Insert the data.
         $gsid = $DB->insert_record($table, $dataobj, false);
 
         // We may not need to fetch/send this. Revisit.
-        $gs = $DB->get_record($table, array('id' => $gsid));
+        $gs = $DB->get_record($table, ['id' => $gsid]);
 
         // TODO: RETURN ERRORS.
 
@@ -1789,7 +1843,7 @@ class workdaystudent {
         $success = $DB->execute($sql);
 
         // Build the $gs array for future use.
-        $gs = array();
+        $gs = [];
 
         // Set the counter.
         $counter = 0;
@@ -1848,16 +1902,16 @@ class workdaystudent {
         $table = 'enrol_wds_grade_schemes';
 
         // Set the singular data object.
-        $dataobj = array(
+        $dataobj = [
             'grading_scheme_id' => $gsids,
             'grade_id' => $gradingscheme->Student_Grade_ID,
             'grade_display' => $gradingscheme->Student_Grade_Display,
             'requires_last_attendance' => $gradingscheme->Requires_Last_Attendance,
             'grade_note_required' => $gradingscheme->Grade_Note_Required
-        );
+        ];
 
-        $gs = array();
-        $gsa = array();
+        $gs = [];
+        $gsa = [];
 
         // We do not have multiple grading basis, insert the singular item.
         if (!strpos($gradingscheme->Grading_Basis, ';')) {
@@ -1867,7 +1921,7 @@ class workdaystudent {
             $gsid = $DB->insert_record($table, $dataobj, true);
 
             // We may not need to fetch/send this. Revisit.
-            $gs[] = $DB->get_record($table, array('id' => $gsid));
+            $gs[] = $DB->get_record($table, ['id' => $gsid]);
 
         // We have multiple grading basis', go nuts.
         } else {
@@ -1885,7 +1939,7 @@ class workdaystudent {
                 $gsid = $DB->insert_record($table, $dataobj, true);
 
                 // We may not need to fetch/send this. Revisit.
-                $gsa[] = $DB->get_record($table, array('id' => $gsid));
+                $gsa[] = $DB->get_record($table, ['id' => $gsid]);
                 $gs = array_merge($gs, $gsa);
             }
         }
@@ -1957,7 +2011,7 @@ class workdaystudent {
     $endpoint = 'courses';
 
         // Set some aprms up.
-        $parms = array();
+        $parms = [];
         if (isset($s->campus)) {
             $parms['Institution!Academic_Unit_ID'] = $s->campus;
         }
@@ -2038,7 +2092,7 @@ class workdaystudent {
         $table = 'enrol_wds_units';
 
         // Set up the conditions.
-        $conditions = array('academic_unit_subtype'=>'Institution');
+        $conditions = ['academic_unit_subtype'=>'Institution'];
 
         // Fetch the units.
         $units = $DB->get_records($table, $conditions, $sort = '', $fields = '*');
@@ -2051,7 +2105,7 @@ class workdaystudent {
         $endpoint = 'units';
 
         // Set some aprms up.
-        $parms = array();
+        $parms = [];
 
         // Check the campus.
         if (isset($s->campus)) {
@@ -2104,10 +2158,10 @@ class workdaystudent {
         }
 
         // Build the return array.
-        $dates = array(
+        $dates = [
             'Start_Date' => $startdate,
             'End_Date' => $enddate
-        );
+        ];
 
         return $dates;
     }
@@ -2120,7 +2174,7 @@ class workdaystudent {
         $dtable = 'enrol_wds_students_meta';
 
         // Set the deleted parms.
-        $dparms = array('studentid' => $stu->id);
+        $dparms = ['studentid' => $stu->id];
 
         // Delete the records for this student.
         $deleted = $DB->delete_records($dtable, $dparms);
@@ -2249,7 +2303,7 @@ class workdaystudent {
         $table = 'enrol_wds_sport';
 
         // Set the parms.
-        $parms = array('code' => $team->Athletic_Team_ID);
+        $parms = ['code' => $team->Athletic_Team_ID];
 
         // Get tthe data.
         $sport = $DB->get_record($table, $parms);
@@ -2632,7 +2686,7 @@ class workdaystudent {
         $success = $DB->insert_record($table, $data, true);
 
         if (is_int($success)) {
-            $stu = $DB->get_record($table, array('id' => $success));
+            $stu = $DB->get_record($table, ['id' => $success]);
             self::dtrace("  - Created student with universal_id: " .
                 "$stu->universal_id, email: $stu->email, school_id: $stu->school_id.");
             return $stu;
@@ -2834,7 +2888,7 @@ class workdaystudent {
         $success = $DB->insert_record($table, $data, true);
 
         if (is_int($success)) {
-            $tea = $DB->get_record($table, array('id' => $success));
+            $tea = $DB->get_record($table, ['id' => $success]);
             self::dtrace(" Created user with universal_id: " .
                 "$tea->universal_id, email: $tea->email.");
             return $tea;
@@ -2864,7 +2918,7 @@ class workdaystudent {
             $uenrs = $DB->get_records_sql($usql);
 
             // Build an empty array for later use.
-            $unenrolls = array();
+            $unenrolls = [];
 
             // If we have existing teachers who are no longer being sent over by the sis.
             if (!empty($uenrs)) {
@@ -2900,7 +2954,7 @@ class workdaystudent {
         if (!is_null($universalid) && !is_null($role)) {
 
             // Set the parms up.
-            $parm = array('section_listing_id' => $sectionid, 'universal_id' => $universalid);
+            $parm = ['section_listing_id' => $sectionid, 'universal_id' => $universalid];
 
             // Get the enrollment.
             $enr = $DB->get_record($table, $parm);
@@ -3512,11 +3566,11 @@ class workdaystudent {
 
         // Do we want our shells built with common sections merged per teacher?
         if ($s->course_grouping == 1) {
-            $uniquer = "GROUP_CONCAT(CONCAT(sec.course_listing_id,'_',tea.universal_id) ORDER BY sec.section_listing_id ASC) AS coursesections";
+            $uniquer = "CONCAT(sec.course_definition_id,'_',tea.universal_id) AS coursesection";
             $grouper = "GROUP BY per.id, cou.course_listing_id, tenr.universal_id";
         } else {
-            $uniquer = "GROUP_CONCAT(sec.section_listing_id ORDER BY sec.section_listing_id ASC) AS coursesections";
-            $grouper = "GROUP BY per.id, sec.section_listing_id";
+            $uniquer = "sec.course_section_definition_id AS coursesection";
+            $grouper = "GROUP BY per.id, sec.course_section_definition_id";
         }
 
         // Build the SQL to retreive the required data to build shells for primary instructors.
@@ -3629,7 +3683,7 @@ class workdaystudent {
 
 
             // Build out an array of groupids.
-            $groupids = array();
+            $groupids = [];
 
             // Check if the group already exists in the course.
             $existinggroup = $DB->get_record('groups',
@@ -3995,7 +4049,7 @@ die();
         $usernames = explode(",", $s->contacts);
 
         // Set up the users array.
-        $users = array();
+        $users = [];
 
         // Loop through the usernames and add each user object to the user array.
         foreach ($usernames as $username) {
@@ -4004,7 +4058,7 @@ die();
             $username = trim($username);
 
             // Add the user object to the array.
-            $users[] = $DB->get_record('user', array('username' => $username));
+            $users[] = $DB->get_record('user', ['username' => $username]);
         }
 
         // Send an email to each of the above users.
@@ -4517,7 +4571,7 @@ class wdscronhelper {
         $timeustarted = microtime(true);
 
         // Build the icourses storage array.
-        $icourses = array();
+        $icourses = [];
 
         // Loop through the courses.
         foreach ($courses as $course) {
@@ -4562,7 +4616,7 @@ class wdscronhelper {
 
         foreach($periods as $period) {
             // Set upo the parameter array.
-            $parms = array();
+            $parms = [];
 
             // Add the academic period id.
             $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
@@ -4816,7 +4870,7 @@ class wdscronhelper {
                 $records = count($students);
 
                 // Set up the sports array.
-                $sports = array();
+                $sports = [];
                 mtrace("It took $wselapsed seconds to pull $records " .
                     "students in $period->academic_period_id from the webservice.");
 
@@ -4921,7 +4975,7 @@ class wdscronhelper {
         mtrace("Fetched $numgrabbed periods to enroll.");
 
         // Build the unenroll array.
-        $unenrolls = array();
+        $unenrolls = [];
         $unenrolls[] = 'Dropped';
         $unenrolls[] = 'Enrollment Cancelled';
         $unenrolls[] = 'Enrollment Rescinded';
@@ -4930,12 +4984,12 @@ class wdscronhelper {
         $unenrolls[] = 'Withdrawn';
 
         // Build the enroll array.
-        $enrolls = array();
+        $enrolls = [];
         $enrolls[] = 'Enrolled';
         $enrolls[] = 'Registered';
 
         // Build the do nothing array.
-        $donothings = array();
+        $donothings = [];
         $donothings[] = 'Completed';
         $donothings[] = 'Auto Drop from Waitlist on Enroll';
         $donothings[] = 'Enrolled - Pending Approval';
@@ -4999,7 +5053,7 @@ class wdscronhelper {
         $starttime = microtime(true);
 
         // Build this to loop through matchers later.
-        $matchers = array();
+        $matchers = [];
         $matchers = ['email', 'idnumber', 'username'];
 
         mtrace("Beginning user reconciliation.");
@@ -5233,7 +5287,7 @@ class enrol_workdaystudent extends enrol_plugin {
         $courseid = $group->courseid;
 
         // Set this for later.
-        $stunenrollmentcounts = array();
+        $stunenrollmentcounts = [];
         $stunenrollmentcounts[$courseid] = 0;
 
         // Get all members of the WDS group.
