@@ -74,7 +74,8 @@ class enrol_workdaystudent_periodconfig_form extends moodleform {
                             <td>' . s($record->period_type) . '</td>
                             <td>' . userdate($record->start_date, $format) . '</td>
                             <td>' . userdate($record->end_date, $format) . '</td>
-                            <td><input type="checkbox" name="' . $enabledname . '" value="1" ' . $checked . '></td>
+                            <td><input type="checkbox" name="' .
+                             $enabledname . '" value="1" ' . $checked . '></td>
                            </tr>';
         }
 

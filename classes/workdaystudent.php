@@ -1608,15 +1608,16 @@ class workdaystudent {
                   FROM {enrol_wds_periods} p
                 WHERE p.start_date < UNIX_TIMESTAMP() + $fsemrange
                   AND p.end_date > UNIX_TIMESTAMP() - $psemrange
-                  $allcurrentperiods";
+                  $allcurrentperiods
+                  ORDER BY p.start_date ASC, p.period_type ASC";
 
         // Get the actual data.
         $periods = $DB->get_records_sql($sql);
 
         // TODO: Remove this shit.
-        $forced = new stdClass();
-        $forced->academic_period_id = "LSUAM_SPRING_2024";
-        $periods["LSUAM_SPRING_2024"] = $forced;
+//        $forced = new stdClass();
+//        $forced->academic_period_id = "LSUAM_SPRING_2024";
+//        $periods["LSUAM_SPRING_2024"] = $forced;
 
         return $periods;
     }
@@ -2407,7 +2408,7 @@ class workdaystudent {
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
         // Debug this connection.
-        if ($CFG->debugdisplay === 1) {
+        if ($CFG->debugdisplay == 1) {
 // TODO: readd            curl_setopt($ch, CURLOPT_VERBOSE, true);
         }
 
@@ -3301,7 +3302,7 @@ class workdaystudent {
         // Make sure we're using their preferred names.
         if (is_null($student->preferred_lastname)
             || $student->lastname == $student->preferred_lastname) { 
-            $user->lasttname = $student->lastname;
+            $user->lastname = $student->lastname;
         } else {
             $user->lastname = $student->preferred_lastname;
         }
@@ -4008,7 +4009,7 @@ die();
         $indent = !is_null($indent) ? '' : $indent;
 
         // If debugdisplay is on.
-        if ($CFG->debugdisplay === "1") {
+        if ($CFG->debugdisplay == 1) {
             $mtrace = mtrace($message);
             return $mtrace;
         } else {
@@ -4069,27 +4070,74 @@ die();
         }
     }
 
-    // TODO: I do not know if I will need this.
-    public static function wds_get_missing_students($period) {
+    // I do not know if I will need this and it is sorta wasteful.
+    public static function wds_get_insert_missing_students() {
         global $DB;
 
-        // SQL to get all the students without demographic data in a given period.
+        // SQL to get all the students without demographic data regardless of period.
         $sql = "SELECT stuenr.universal_id
             FROM {enrol_wds_student_enroll} stuenr
-                INNER JOIN {enrol_wds_sections} sec
-                    ON sec.section_listing_id = stuenr.section_listing_id
                 LEFT JOIN {enrol_wds_students} stu
                     ON stu.universal_id = stuenr.universal_id
-            WHERE sec.academic_period_id = '$period->academic_period_id'
-                AND stuenr.status = 'enroll'
+            WHERE stuenr.status = 'enroll'
                 AND stu.id IS NULL
             GROUP BY stuenr.universal_id";
 
-        // Fetch the data.
-        $missing = $DB->get_records_sql($sql);
+        // Fetch the data from the idb.
+        $missingstudents = $DB->get_records_sql($sql);
 
-        // Return the data.
-        return $missing;
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Make sure we're grabbing all current periods below.
+        $s->allperiods = true;
+
+        // Get current periods (all of them regardless of enabled status).
+        $periods = workdaystudent::get_current_periods($s);
+
+        // Loop through all the missing students and fetch their data.
+        foreach ($missingstudents as $missingstudent) {
+
+            // Loop through all the current the periods.
+            // We will end up fetching more than once sometimes.
+            foreach ($periods as $period) {
+
+                // Fetch the data for the student.
+                $foundstudents = workdaystudent::get_students($s,
+                    $period->academic_period_id,
+                    $missingstudent->universal_id);
+
+                // If any were found, do some stuff.
+                if ($foundstudents) {
+
+                    if (count($foundstudents) > 1) {
+                        mtrace("\nError! Found more than one student with the same universal id: " .
+                            "$missingstudent->universal_id. Skipping.");
+                        return;
+                    }
+
+                    // This will only be one student, so reset the array.
+                    $student = reset($foundstudents);
+
+                    // We could probably use create_istudent, but this is safer. 
+                    $stu = workdaystudent::create_update_istudent($s, $student);
+
+                    // Insert the metadata for the student we just found and inserted.
+                    $stumeta = workdaystudent::insert_all_studentmeta($s, $stu, $student, $period);
+
+                    // Get the potential new student user object for later.
+                    $nsusers = workdaystudent::get_potential_new_mstudents();
+
+                    // In theory we should only have one user here, but if something got missed, this is safer.
+                    foreach($nsusers as $nsuser) {
+
+                        // Create or update the Moodle user and insert the userid into the itable.
+                        $msuser = workdaystudent::create_update_msuser($nsuser, null);
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     public static function wds_get_faculty_enrollments($period) {
@@ -4141,7 +4189,7 @@ die();
 
         $reprocesssection = is_null($coursesection) ?
             '' :
-            " AND sec.idnumber = '$coursesection'";
+            " AND sec.id = '$coursesection'";
 
         $sql = "SELECT stuenr.id AS enrollment_id,
                 stu.userid AS userid,
@@ -4383,7 +4431,7 @@ class wdscronhelper {
         // Set the end time for the units processing.
         $unitspend = microtime(true);
 
-        if ($CFG->debugdisplay === 1) {
+        if ($CFG->debugdisplay == 1) {
             mtrace(" Processed $numunits units in $unitselapsed seconds.");
         } else {
             mtrace("\n Processed $numunits units in $unitselapsed seconds.");
@@ -4464,7 +4512,7 @@ class wdscronhelper {
                 }
             }
 
-            if ($CFG->debugdisplay === 1) {
+            if ($CFG->debugdisplay == 1) {
                 mtrace("  Finished processing $numperiods periods for " .
                     "$unit->academic_unit_id: $unit->academic_unit.");
             } else {
@@ -4798,7 +4846,7 @@ class wdscronhelper {
             // Log it.
             mtrace("    ERROR: Something went wrong with " .
                 "the updating of grading schemes.");
-            mtrace("  Processing of grading schems is complete.");
+            mtrace("  Processing of grading schemes: complete.");
 
             return false;
         } else {
@@ -4807,7 +4855,7 @@ class wdscronhelper {
             // Log it.
             mtrace("\n    It took $ugstime seconds to fetch and insert $gscount " .
                 "records in $numgrabbed updated grading schemes.");
-            mtrace("  Processing of grading schems is complete.");
+            mtrace("  Processing of grading schemes: complete.");
 
             return true;
         }
@@ -5218,7 +5266,7 @@ class wdscronhelper {
                         continue;
 
                     // Use the user (if they have) or site create prior threshold.
-                    } else if (((int) $mshell->start_date - (86400 * $sdthreshold)) < $time()) {
+                    } else if (((int) $mshell->start_date - (86400 * $sdthreshold)) < time()) {
                             $skippedcount++;
                             workdaystudent::dtrace(                                                                                             "$mshell->fullname not created due to start date " .
                                 "being sooner than $sdthreshold days from now."

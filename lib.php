@@ -94,6 +94,9 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Process wds enrollments.
         $cronstuenroll = wdscronhelper::cronstuenroll();
 
+        // Fetch and update any missing students not in an active period.
+        $nonactive = workdaystudent::wds_get_insert_missing_students();
+
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls();
 
@@ -153,6 +156,9 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
 
         // Process wds enrollments.
         $cronstuenroll = wdscronhelper::cronstuenroll();
+
+        // Fetch and update any missing students not in an active period.
+        $nonactive = workdaystudent::wds_get_insert_missing_students();
 
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls();
