@@ -55,8 +55,11 @@ class workdaystudent {
      * @param int $userid The user ID.
      * @return stdClass An object containing the user's preferences.
      */
-    public static function wds_get_faculty_preferences($userid) {
+    public static function wds_get_faculty_preferences($mshell) {
         global $DB;
+
+        // Set this for use later.
+        $userid = $mshell->userid;
 
         // Validate user ID.
         if (!is_numeric($userid) || $userid <= 0) {
@@ -76,25 +79,49 @@ class workdaystudent {
 
         // Define default values.
         $defaults = [
-            'wdspref_createprior' => isset($s->createprior) ? (int) $s->createprior : 14,
-            'wdspref_enrollprior' => isset($s->enrollprior) ? (int) $s->enrollprior : 7,
-            'wdspref_courselimit' => isset($s->numberthreshold) ? (int) $s->numberthreshold : 5000
+            'wdspref_createprior' => isset($s->createprior) ? (int) $s->createprior : 28,
+            'wdspref_enrollprior' => isset($s->enrollprior) ? (int) $s->enrollprior : 14,
+            'wdspref_courselimit' => isset($s->numberthreshold) ? (int) $s->numberthreshold : 7000,
+            'wdspref_format' => 'topics'
         ];
 
         // Initialize user preferences with defaults.
         $userprefs = new stdClass();
         foreach ($defaults as $key => $value) {
             $shortkey = str_replace('wdspref_', '', $key);
-            $userprefs->$shortkey = $value;
+            if ($shortkey == 'format') {
+                $userprefs->$shortkey = $value;
+            } else {
+                $userprefs->$shortkey = (int) $value;
+            }
         }
 
         // Override defaults with retrieved preferences.
         foreach ($preferences as $pref) {
             $shortkey = str_replace('wdspref_', '', $pref->name);
-            $userprefs->$shortkey = (int) $pref->value;
+            if ($shortkey == 'format') {
+                $userprefs->$shortkey = $pref->value;
+            } else {
+                $userprefs->$shortkey = (int) $pref->value;
+            }
         }
 
         return $userprefs;
+    }
+
+    public static function wds_get_unwants($mshell) {
+        global $DB;
+
+        // Build the SQL.
+        $usql = "SELECT *
+            FROM {block_wdspref_unwants}
+             WHERE userid = $mshell->userid
+                 AND sectionid IN ($mshell->sectionids)";
+
+        $unwants = $DB->get_records_sql($usql);
+
+        // Remove this after testing.
+        return $unwants;
     }
 
     public static function get_students($s, $periodid, $studentid) {
@@ -3723,20 +3750,8 @@ class workdaystudent {
     }
 
 
-    public static function create_moodle_shell($mshell) {
+    public static function create_moodle_shell($mshell, $userprefs) {
         global $CFG, $DB;
-
-/*
-// Delete all test courses!
-require_once($CFG->libdir . '/moodlelib.php');
-$csql = "SELECT * FROM {course} WHERE fullname LIKE 'WDS - %'";
-$courses = $DB->get_records_sql($csql);
-foreach ($courses as $course) {
-    // Delete the course using Moodle's course deletion API
-    delete_course($course);
-}
-die();
-*/
 
         // Get some moodle files as needed.
         require_once($CFG->dirroot . '/course/lib.php');
@@ -3744,6 +3759,7 @@ die();
         // Get or create the course category in the specified parent.
         $cat = self::get_create_course_category_id($mshell);
 
+        // Get settings.
         $s = self::get_settings();
 
         // Get the Moodle course defaults.
@@ -3756,8 +3772,9 @@ die();
         $course->idnumber = self::build_mshell_idnumber($mshell);
         $course->category = $cat->id;
         $course->visible = $s->visible ?? 0;
-        // TODO: Make this a default and user preference.
-        $course->format = $s->format ?? 'topics';
+        $course->format = isset($userprefs->format) ?
+            $userprefs->format :
+            $coursedefaults->format;
         $course->groupmode = $coursedefaults->groupmode;
         $course->groupmodeforce = $coursedefaults->groupmodeforce;
         $course->summary = $mshell->course_abbreviated_title;
@@ -4119,6 +4136,13 @@ die();
                     // This will only be one student, so reset the array.
                     $student = reset($foundstudents);
 
+                    $email = workdaystudent::wds_email_finder($s, $student);
+
+                    // We do not have an email, try the next one.
+                    if (is_null($email)) {
+                        continue;
+                    }
+
                     // We could probably use create_istudent, but this is safer. 
                     $stu = workdaystudent::create_update_istudent($s, $student);
 
@@ -4385,6 +4409,54 @@ die();
 
         return $emorgrades;
     }
+
+    public static function wds_email_finder($s, $student) {
+
+        // Set this to null so we can work with it.
+        $email = null;
+
+        // Build out the email address suffix.
+        $esuffix = $s->campusname . '_Email';
+
+        // If the default suffix does not exist, look for others.
+        if (isset($student->$esuffix)) {
+
+            // We have a default email. Grab it like you want it.
+            $email = isset($student->$esuffix) ? $student->$esuffix : null;
+        } else {
+
+            // Log that email is borked.
+            self::dtrace(
+                'We have a non-default or missing email for ' .
+                $student->Universal_Id . ' - ' .
+                $student->First_Name . ' ' .
+                $student->Last_Name . '.'
+            );
+
+            // We do not have a default suffix, build one out based on institution.
+            $esuffix = self::get_suffix_from_institution($student) . '_Email';
+
+            // If the default suffix does not exist, look for others.
+            if (isset($student->$esuffix)) {
+
+                // Set email accordingly.
+                $email = isset($student->$esuffix) ? $student->$esuffix : null;
+            } else {
+
+                // Log that email is borked.
+                mtrace(
+                    'We have a missing email for ' .
+                    $student->Universal_Id . ' - ' .
+                    $student->First_Name . ' ' .
+                    $student->Last_Name . '.'
+                );
+            }
+        }
+
+        // This should either be a real email or null.
+        return $email;
+    }
+
 }
 
 class wdscronhelper {
@@ -4922,31 +4994,7 @@ class wdscronhelper {
                 // Loop through the students and insert / update their data.
                 foreach ($students as $student) {
 
-                    // Build out the email address suffix.
-                    $esuffix = $s->campusname . '_Email';
-
-                    // If the default suffix does not exist, look for others.
-                    if (isset($student->$esuffix)) {
-
-                        // We have a default email. Grab it like you want it.
-                        $email = isset($student->$esuffix) ?
-                            $student->$esuffix :
-                            null;
-                    } else {
-                        workdaystudent::dtrace(
-                            'We found a non-default or missing email for ' . 
-                            $student->Universal_Id . ' - ' .
-                            $student->First_Name . ' ' .
-                            $student->Last_Name . '.');
-
-                        // We do not have a default suffix, build one out based on institution.
-                        $esuffix = workdaystudent::get_suffix_from_institution(
-                            $student
-                        ) . '_Email';
-
-                        // Set email accordingly.
-                        $email = isset($student->$esuffix) ? $student->$esuffix : null;
-                    }
+                    $email = workdaystudent::wds_email_finder($s, $student);
 
                     // GTFO if we don't have a UID or email.
                     if (!isset($student->Universal_Id) || is_null($email)) {
@@ -5250,7 +5298,7 @@ class wdscronhelper {
                     $mshell->numerical_value = workdaystudent::get_numeric_course_value($mshell);
 
                     // Get the faculty preferences.
-                    $userprefs = workdaystudent::wds_get_faculty_preferences($mshell->userid);
+                    $userprefs = workdaystudent::wds_get_faculty_preferences($mshell);
 
                     // Set the course number threshold.
                     $cnthreshold = $userprefs->courselimit;
@@ -5279,7 +5327,7 @@ class wdscronhelper {
                             workdaystudent::dtrace("  Creating $mshell->fullname.");
 
                             // Create the shell.
-                            $courseshell = workdaystudent::create_moodle_shell($mshell);
+                            $courseshell = workdaystudent::create_moodle_shell($mshell, $userprefs);
                     }
                 }
             }

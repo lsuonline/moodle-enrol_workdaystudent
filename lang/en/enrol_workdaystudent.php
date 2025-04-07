@@ -47,13 +47,14 @@ $string['workdaystudent:course_grouping'] = 'Section grouping';
 $string['workdaystudent:course_grouping_desc'] = "Moodle will pool course sections according to the primary instructor.";
 $string['workdaystudent:numberthreshold'] = 'Course threshold';
 $string['workdaystudent:numberthreshold_desc'] = "Moodle will NOT create courses with course numbers greater than and including the value specified here.";
+$string['workdaystudent:format'] = 'Course format';
 $string['workdaystudent:autoparent'] = 'Parent Category by Semester';
 $string['workdaystudent:autoparent_desc'] = "Create all new course categories within semesterly categories.";
 $string['workdaystudent:parentcat'] = 'Specified Parent Category';
 $string['workdaystudent:parentcat_desc'] = "Create all new course categories within this category.";
 $string['workdaystudent:visible'] = 'Course creation visibility';
 $string['workdaystudent:visible_desc'] = "Create all new courses with them visible to students.";
-$string['workdaystudent:coursenamingformat'] = 'Format';
+$string['workdaystudent:coursenamingformat'] = 'Naming format';
 $string['workdaystudent:coursenamingformat_desc'] = "Possible options:<br>{period_year}<br>{course_subject_abbreviation}<br>{course_number}<br>{class_type}<br>{firstname}<br>{lastname}<br>{delivery_mode}";
 
 // The tasks.

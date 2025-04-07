@@ -30,6 +30,35 @@ require_once(__DIR__ . '/../../../../config.php');
 // Include the Workday Student helper class.
 require_once(__DIR__ . '/../workdaystudent.php');
 
-$userprefs = workdaystudent::wds_get_faculty_preferences(94050);
+$mshell = new stdClass();
+
+$mshell->coursesection = "LSUAM_ACCT9000_00079591";
+$mshell->period_year = "2025";
+$mshell->period_type = "Summer";
+$mshell->start_date = "1748322000";
+$mshell->end_date = "1754888400";
+$mshell->course_subject_abbreviation = "ACCT";
+$mshell->course_subject = "Accounting";
+$mshell->course_abbreviated_title = "Dissertation Research";
+$mshell->course_number = "9000";
+$mshell->academic_level = "Graduate";
+$mshell->class_type = "Research";
+$mshell->universal_id = "00079591";
+$mshell->userid = "94050";
+$mshell->username = "jlejune@lsu.edu";
+$mshell->email = "jlejune@lsu.edu";
+$mshell->preferred_firstname = "JJ";
+$mshell->firstname = "Jonathan";
+$mshell->preferred_lastname = NULL;
+$mshell->lastname = "Lejune";
+$mshell->delivery_mode = "On Campus";
+$mshell->sectionids = "504,525";
+$mshell->sections = "001-RES-SM,002-RES-SM";
+$mshell->roles = "primary,primary";
+
+
+$userprefs = workdaystudent::wds_get_faculty_preferences($mshell);
+$unwants = workdaystudent::wds_get_unwants($mshell);
 
 var_dump($userprefs);
+var_dump($unwants);
