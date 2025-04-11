@@ -28,7 +28,7 @@ define('CLI_SCRIPT', true);
 require_once(__DIR__ . '/../../../../config.php');
 
 // Include the Workday Student helper class.
-require_once(__DIR__ . '/../workdaystudent.php');
+require_once(__DIR__ . '/../testwds.php');
 
 $mshell = new stdClass();
 
@@ -44,7 +44,7 @@ $mshell->course_number = "9000";
 $mshell->academic_level = "Graduate";
 $mshell->class_type = "Research";
 $mshell->universal_id = "00079591";
-$mshell->userid = "94050";
+$mshell->userid = "940501";
 $mshell->username = "jlejune@lsu.edu";
 $mshell->email = "jlejune@lsu.edu";
 $mshell->preferred_firstname = "JJ";
@@ -58,7 +58,20 @@ $mshell->roles = "primary,primary";
 
 
 $userprefs = workdaystudent::wds_get_faculty_preferences($mshell);
+/*
 $unwants = workdaystudent::wds_get_unwants($mshell);
+$userprefs->unwants = array();
+$userprefs->wants = array();
 
+foreach($unwants as $unwant) {
+
+    if ($unwant->unwanted === "1") {
+        $userprefs->unwants[] = $unwant->sectionid;
+    }
+
+    if ($unwant->unwanted === "0") {
+        $userprefs->wants[] = $unwant->sectionid;
+    }
+}
+*/
 var_dump($userprefs);
-var_dump($unwants);
