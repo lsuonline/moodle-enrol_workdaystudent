@@ -1004,10 +1004,8 @@ class workdaystudent {
     }
 
     public static function process_section_schedule(object $section,
+        string $schedule,
         string $timezone = 'America/Chicago'): array {
-
-        // Grab the schedule.
-        $schedule = $section->Meeting_Patterns;
 
         // Split the string into days and time.
         [$dayspart, $timepart] = explode('|', $schedule);
@@ -1049,7 +1047,7 @@ class workdaystudent {
         $tz = new DateTimeZone($timezone);
 
         // Build an array to hold this stuff.
-        $schedule_items = [];
+        $scheduleitems = [];
 
         // Loop through the days and times, ensuring each day has a corresponding time.
         foreach ($days as $index => $day) {
@@ -1073,8 +1071,8 @@ class workdaystudent {
             }
 
             // Create an object for each day with start or end times.
-            $schedule_items[] = (object)[
-                'section_listing_id' => $section->Section_Listing_ID, // Add section_listing_id to each object
+            $scheduleitems[] = (object)[
+                'section_listing_id' => $section->Section_Listing_ID,
                 'day' => $day,
                 'short_day' => $shortdays[$index] ?? null,
                 'start_time' => $startdatetime->setTimezone($tz)->format('g:i A T'),
@@ -1083,57 +1081,85 @@ class workdaystudent {
         }
 
         // Return the array of schedule items.
-        return $schedule_items;
+        return $scheduleitems;
     }
 
-    public static function insert_update_section_schedule($schedules) {
-        $sss = [];
-        foreach ($schedules as $schedule) {
-            // Check to see if we have a matching section.
-            $ss = self::check_section_schedule($schedule);
+    /**
+     * Store the schedule (add, update, or delete records) based on the provided data.
+     *
+     * @param array $schedule An array of stdClass objects containing the schedule data.
+     * @return void
+     */
+    public static function wds_store_schedules($section, $schedules) {
+        global $DB;
 
-            // We do! We do have a matching section.
-            if (isset($ss->id)) {
-                // TODO: Build out updating.
-                // Update it.
-                // $sss[] = self::update_section_schedule($schedule, $ss);
+        // Check if the schedule is valid
+        if (empty($schedules)) {
+            return;
+        }
+
+        // Set the table.
+        $table = 'enrol_wds_section_meta';
+
+        // Build out the query parms.
+        $parms = ['section_listing_id' => $section->Section_Listing_ID];
+
+        // Retrieve existing records for the given section_listing_id.
+        $existingrecords = $DB->get_records($table, $parms);
+
+        // Build an array for future use.
+        $existingmap = [];
+
+        // Convert to an associative array by day for easy access.
+        foreach ($existingrecords as $record) {
+            $existingmap[$record->day] = $record;
+        }
+
+        // Process each schedule entry.
+        foreach ($schedules as $scheduleitem) {
+
+            // Validate the required fields.
+            if (empty($scheduleitem->section_listing_id) || empty($scheduleitem->day)) {
+                mtrace("Schedule is borked for $section->section_listing_id.");
+                continue;
+            }
+
+            // Check if this day already exists in the database.
+            if (isset($existingmap[$scheduleitem->day])) {
+
+                // The day already exists, check if the times are different.
+                $existingrecord = $existingmap[$scheduleitem->day];
+
+                // The record exists but it does not match the stored value.
+                if ($existingrecord->start_time !== $scheduleitem->start_time ||
+                    $existingrecord->end_time !== $scheduleitem->end_time) {
+
+                    // Times differ, set them accordingly and update the record.
+                    $existingrecord->start_time = $scheduleitem->start_time;
+                    $existingrecord->end_time = $scheduleitem->end_time;
+                    $DB->update_record($table, $existingrecord);
+                }
+            
+                // Remove handled items from the existingmap.
+                unset($existingmap[$scheduleitem->day]);
             } else {
-                // Insert it.
-                $sss[] = self::insert_section_schedule($schedule);
+                // No record for this day. Insert one.
+                $DB->insert_record($table, $scheduleitem);
+
+                // Remove handled items from the existingmap.
+                unset($existingmap[$scheduleitem->day]);
             }
         }
-        return $sss;
-    }
 
-    public static function check_section_schedule($schedule) {
-        global $DB;
+        if (!empty($existingmap)) {
+            // After processing the schedules, remove any days not in the new schedules.
+            foreach ($existingmap as $day => $recordtoremove) {
+                $DB->delete_records($table, ['id' => $recordtoremove->id]);
+                mtrace("Removed $recordtoremove->day section schedule from " .
+                    "$recordtoremove->section_listing_id.");
+            }
 
-        // Set the table.
-        $table = 'enrol_wds_section_meta';
-
-        // Set the parameters.
-        $parms = [
-            'section_listing_id' => $schedule->section_listing_id,
-            'day' => $schedule->day
-        ];
-
-        // Get the academic unit record.
-        $ss = $DB->get_record($table, $parms);
-
-        return $ss;
-    }
-
-    public static function insert_section_schedule($schedule) {
-        global $DB;
-
-        // Set the table.
-        $table = 'enrol_wds_section_meta';
-
-        $ss = $DB->insert_record($table, $schedule);
-        self::dtrace("Inserted $schedule->day $schedule->start_time - $schedule->end_time " .
-            "for section_listing_id: $schedule->section_listing_id.");
-
-        return $ss;
+        }
     }
 
     public static function grab_section_schedule($universalid = null) {
@@ -4804,9 +4830,45 @@ class wdscronhelper {
                 $sec = workdaystudent::insert_update_section($section);
 
                 // If we have section components, add / update the schedule data.
-                if (isset($section->Meeting_Patterns)) {
-                    $schedule = workdaystudent::process_section_schedule($section);
-                    $sectionschedule = workdaystudent::insert_update_section_schedule($schedule);
+                if (isset($section->Meeting_Patterns) || isset($section->Section_Components)) {
+
+                    // Because some people cannot consistently set shit up.
+                    if (isset($section->Meeting_Patterns)) {
+                        // Set this for easier use.
+                        $mps = $section->Meeting_Patterns;
+                    } else {
+                        // Set this for easier use.
+                        $mps = $section->Section_Components;
+                    }
+
+                    // Check to see if we have more than one meeting patterns.
+                    if (str_contains($mps, ';')) {
+
+                        // Split into two (or more) meeting patterns.
+                        $mpsa = array_map('trim', explode(';', $mps));
+
+                    // We do not have more than one meeting pattern.
+                    } else {
+
+                        // Return the original string as a single-item array.
+                        $mpsa = [trim($mps)];
+                    }
+
+                    // Set up an empty array for this.
+                    $schedules = [];
+
+                    // Loop through the meeting patterns array.
+                    foreach ($mpsa as $mp) {
+
+                        // Process the section schedule for this meeting pattern.
+                        $schedule = workdaystudent::process_section_schedule($section, $mp);
+
+                        // Merge this shit together.
+                        $schedules = array_merge($schedules, $schedule);
+                    }
+
+                    // Add these meeting patterns to the DB.
+                    $sectionschedule = workdaystudent::wds_store_schedules($section, $schedules);
                 }
 
                 // If we do not have an instructor, let us know.

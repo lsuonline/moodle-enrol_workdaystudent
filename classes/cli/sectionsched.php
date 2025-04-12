@@ -26,6 +26,7 @@ define('CLI_SCRIPT', true);
 
 // Include the main Moodle config.
 require_once(__DIR__ . '/../../../../config.php');
+require_once(__DIR__ . '/../workdaystudent.php');
 
 // Get settings.
 $s = workdaystudent::get_settings();
@@ -33,106 +34,37 @@ $s = workdaystudent::get_settings();
 // Get the sections.
 $periods = workdaystudent::get_current_periods($s);
 
-    function class_schedule(object $section, string $timezone = 'UTC'): array {
-        // Grab the schedule.
-        $schedule = $section->Section_Components;
-
-        // Split the string into days and time.
-        [$dayspart, $timepart] = explode('|', $schedule);
-
-        // Trim the whitespace.
-        $dayspart = trim($dayspart);
-        $timepart = trim($timepart);
-
-        // Split the days into an array.
-        $days = explode(' ', $dayspart);
-
-        // Check if we have both start and end time in the time part.
-        $times = explode('-', $timepart);
-
-        // Trim the times.
-        $times = array_map('trim', $times);
-
-        // Ensure we have exactly 2 times (start and end).
-        if (count($times) < 2) {
-
-            // If we don't have both start and end times, log the issue and exit.
-            mtrace("Invalid time format: $timepart");
-            return [];
-        }
-
-        // Split the time range into start and end times.
-        [$starttime, $endtime] = $times;
-
-        // Map full day names to short names as per my whimsy.
-        $dayshortnames = [
-            'Monday' => 'M', 'Tuesday' => 'Tu', 'Wednesday' => 'W', 'Thursday' => 'Th',
-            'Friday' => 'F', 'Saturday' => 'Sa', 'Sunday' => 'Su'
-        ];
-
-        // Utilize an anonymous function to map the day to its shortened counterpart.
-        $shortdays = array_map(fn($day) => $dayshortnames[$day] ?? $day, $days);
-
-        // Set the timezone.
-        $tz = new DateTimeZone($timezone);
-
-        // Build an array to hold this stuff.
-        $schedule_items = [];
-
-        // Loop through the days and times, ensuring each day has a corresponding time.
-        foreach ($days as $index => $day) {
-
-            // If there are fewer times than days, we should repeat the times or handle the mismatch.
-            if (empty($starttime) || empty($endtime)) {
-                // Skip days with invalid time or log an error.
-                mtrace("Invalid time for day: $day");
-                continue;
-            }
-
-            // Convert to DateTime objects with the timezone.
-            $startdatetime = DateTime::createFromFormat('g:i A', $starttime, $tz);
-            $enddatetime = DateTime::createFromFormat('g:i A', $endtime, $tz);
-
-            // Check if the DateTime creation was successful.
-            if ($startdatetime === false || $enddatetime === false) {
-                // Handle the error (skip and log it).
-                mtrace("Failed to parse time: Start time - $starttime, End time - $endtime");
-                continue;
-            }
-
-            // Create an object for each day with start or end times.
-            $schedule_items[] = (object)[
-                'section_listing_id' => $section->Section_Listing_ID, // Add section_listing_id to each object
-                'day' => $day,
-                'short_day' => $shortdays[$index] ?? null,
-                'start_time' => $startdatetime->setTimezone($tz)->format('g:i A T'),
-                'end_time' => $enddatetime->setTimezone($tz)->format('g:i A T')
-            ];
-        }
-
-        // Return the array of schedule items.
-        return $schedule_items;
-    }
-
-    function insert_schedule($schedules) {
-        global $DB;
-
-        // Build the data array.
-        $data = array();
-
-        // Loop through the schedules and insert them as we get them.
-        foreach($schedules as $schedule) {
-            // Do the nasty.
-            $data[] = $DB->insert_record('enrol_wds_section_meta', $schedule);
-        }
-
-        return $data;
-    }
-
 $section = new stdClass();
-$section->Section_Listing_ID = "COURSE_SECTION_87436534";
-//$section->Section_Components = "Monday | 5:30 PM - 8:30 PM";
-$section->Section_Components = "Monday Tuesday Wednesday Thursday Friday | 1:40 PM - 3:50 PM";
+$section->Section_Listing_ID = "LSUAM_Listing_BADM7160_001-LEC-SMB_LSUAM_SUMMER_1_2025";
+$section->Meeting_Patterns = "Saturday | 8:00 AM - 5:00 PM; Friday | 1:00 PM - 5:00 PM";
 
-$result = class_schedule($section, 'America/Chicago');
-var_dump($result);
+                // If we have section components, add / update the schedule data.
+                if (isset($section->Meeting_Patterns)) {
+
+                    // Set this for easier use.
+                    $mps = $section->Meeting_Patterns;
+
+                    // Check to see if we have more than one meeting patterns.
+                    if (str_contains($mps, ';')) {
+
+                        // Split into two (or more) meeting patterns.
+                        $mpsa = array_map('trim', explode(';', $mps));
+
+                    // We do not have more than one meeting pattern.
+                    } else {
+
+                        // Return the original string as a single-item array.
+                        $mpsa = [trim($input)];
+                    }
+
+                    // Loop through the meeting patterns array.
+                    foreach ($mpsa as $mp) {
+
+                        // Process the section schedule for this meeting pattern.
+                        $schedule = workdaystudent::process_section_schedule($section, $mp);
+
+                        // Add this meeting pattern to the DB.
+                        $sectionschedule = workdaystudent::insert_update_section_schedule($schedule);
+                    }
+                }
+
