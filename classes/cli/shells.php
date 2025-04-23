@@ -28,7 +28,8 @@ define('CLI_SCRIPT', true);
 require_once(__DIR__ . '/../../../../config.php');
 
 // Include the Workday Student helper class.
-require_once(__DIR__ . '/../testwds.php');
+//require_once(__DIR__ . '/../testwds.php');
+require_once(__DIR__ . '/../workdaystudent.php');
 
 // Process course shells.
 $cronshells = wdscronhelper::cronmcourses();

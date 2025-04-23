@@ -39,7 +39,6 @@ class workdaystudent_quick_enroll extends \core\task\scheduled_task {
      */
     public function get_name() {
         return get_string('workdaystudent_quick_enroll', 'enrol_workdaystudent');
-
     }
 
     /**
@@ -49,13 +48,29 @@ class workdaystudent_quick_enroll extends \core\task\scheduled_task {
      */
     public function execute() {
         global $CFG;
-        // Get the library required.
-        require_once($CFG->dirroot . '/enrol/workdaystudent/lib.php');
 
-        // Instantiate the plugin.
-        $workdaystudent = new \enrol_workdaystudent_plugin();
+        // Try to acquire a lock to prevent simultaneous execution with related tasks.
+        $factory = \core\lock\lock_config::get_lock_factory('core');
+        $lock = $factory->get_lock('workdaystudent_enroll_lock', 5);
 
-        // Run the enrollment.
-        $workdaystudent->run_workdaystudent_quick_enroll();
+        if (!$lock) {
+            mtrace('Quick Enroll: Skipping because another task is holding the lock.');
+            return;
+        }
+
+        try {
+            // Get the library required.
+            require_once($CFG->dirroot . '/enrol/workdaystudent/lib.php');
+
+            // Instantiate the plugin.
+            $workdaystudent = new \enrol_workdaystudent_plugin();
+
+            // Run the enrollment.
+            $workdaystudent->run_workdaystudent_quick_enroll();
+
+        } finally {
+            // Always release the lock.
+            $lock->release();
+        }
     }
 }

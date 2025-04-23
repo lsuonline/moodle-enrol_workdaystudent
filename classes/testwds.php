@@ -145,7 +145,6 @@ class workdaystudent {
 
         $unwants = $DB->get_records_sql($usql);
 
-        // Remove this after testing.
         return $unwants;
     }
 
@@ -608,7 +607,7 @@ class workdaystudent {
         $as2->delivery_mode = $section->Delivery_Mode;
         $as2->class_type = $section->Class_Type;
         $as2->controls_grading = $section->Controls_Grading;
-        $as2->wd_status = isset($section->Course_Section_Status) ? $section->Course_Section_Status : 'Pending';
+        $as2->wd_status = isset($section->Course_Section_Status) ? $section->Course_Section_Status : 'pending';
 
         // Compare the objects.
         if (get_object_vars($as) === get_object_vars($as2)) {
@@ -660,7 +659,7 @@ class workdaystudent {
         $tas->class_type = $section->Class_Type;
         $tas->idnumber = null;
         $tas->controls_grading = $section->Controls_Grading;
-        $tas->wd_status = isset($section->Course_Section_Status) ? $section->Course_Section_Status : 'Pending';
+        $tas->wd_status = isset($section->Course_Section_Status) ? $section->Course_Section_Status : 'pending';
 
         $as = $DB->insert_record($table, $tas);
         self::dtrace("Inserted section_listing_id: $tas->section_listing_id.");
@@ -988,18 +987,83 @@ class workdaystudent {
         return $ac;
     }
 
+    public static function check_unwant($section, $as) {
+        global $DB;
+
+        $parms = [
+            'section' => $as->id,
+            'pmi' => $section->PMI_Universal_ID
+        ];
+
+        // Build the SQL.
+        $usql = "SELECT
+            tea.universal_id,
+            uw.unwanted
+            FROM {block_wdspref_unwants} uw
+            INNER JOIN {enrol_wds_teachers} tea
+                ON tea.userid = uw.userid
+            WHERE uw.sectionid = :section
+                AND tea.universal_id = :pmi";
+
+        // Get the record.
+        $unwanted = $DB->get_record_sql($usql, $parms);
+
+        return $unwanted;
+    }
+
     public static function insert_update_section($section) {
+
         // Check to see if we have a matching section.
         $as = self::check_section($section);
 
         // We do! We do have a matching section.
         if (isset($as->id)) {
-            // Update it.
-            $as = self::update_section($section, $as);
+
+            // Check if this section / teacher combo is unwanted.
+            $unwanted = self::check_unwant($section, $as);
+
+            // We do not have a record of this section being unwanted.
+            if (!isset($unwanted->universal_id)) {
+
+echo"\nNot Unwanted\n";
+var_dump($unwanted);
+var_dump($as);
+die();
+
+                // Existing not-specifically-unwanted section, update it.
+      //          $as = self::update_section($section, $as);
+
+            // This section is specifically wanted by the Primary instructor.
+            } else if ($section->PMI_Universal_ID == $unwanted->universal_id &&
+                $unwanted->unwanted == 0) {
+
+echo"\nWanted\n";
+var_dump($unwanted);
+var_dump($as);
+die();
+
+
+                // Existing specifically-wanted section, update it.
+        //        $as = self::update_section($section, $as);
+
+            // The section is unwanted, do not updated it, just return it so we can move on.
+            } else {
+
+echo"\nUnwanted\n";
+var_dump($unwanted);
+var_dump($as);
+die();
+
+                return $as; 
+            }
+
+        // We have no record of this section, add it.
         } else {
+
             // Insert it.
             $as = self::insert_section($section);
         }
+
         return $as;
     }
 
@@ -3686,9 +3750,17 @@ class workdaystudent {
                 INNER JOIN {enrol_wds_teachers} tea
                     ON tenr.universal_id = tea.universal_id
             WHERE sec.controls_grading = 1
+                AND (
+                    sec.wd_status = 'Open' OR
+                    sec.wd_status = 'Closed' OR
+                    sec.wd_status = 'Waitlist'
+                )
                 AND tenr.role = 'primary'
                 AND sec.academic_period_id = '$period->academic_period_id'
-                AND (sec.idnumber IS NULL OR sec.moodle_status = 'Pending')
+                AND (
+                    sec.idnumber IS NULL OR
+                    sec.moodle_status = 'pending'
+                )
                 $grouper
             ORDER BY cou.course_listing_id ASC";
 
@@ -3753,7 +3825,6 @@ class workdaystudent {
         foreach ($sections as $section) {
             // Build out the groupname.
             $groupname = "$mshell->course_subject_abbreviation $mshell->course_number $section";
-
 
             // Build out an array of groupids.
             $groupids = [];
@@ -5201,7 +5272,7 @@ class wdscronhelper {
             $enrollmentstart = $periodstart;
 
             // Fetch the actual enrollments for the period.
-	    $enrollments = workdaystudent::get_period_enrollments($s, $period, null);
+            $enrollments = workdaystudent::get_period_enrollments($s, $period, null);
 
             // Set some times.
             $enrollmentend = microtime(true);
