@@ -63,6 +63,7 @@ class workdaystudent {
 
         // Validate user ID.
         if (!is_numeric($userid) || $userid <= 0) {
+            var_dump($mshell);
             throw new invalid_parameter_exception('Invalid user ID provided.');
         }
 
@@ -81,7 +82,7 @@ class workdaystudent {
         $defaults = [
             'wdspref_createprior' => isset($s->createprior) ? (int) $s->createprior : 28,
             'wdspref_enrollprior' => isset($s->enrollprior) ? (int) $s->enrollprior : 14,
-            'wdspref_courselimit' => isset($s->numberthreshold) ? (int) $s->numberthreshold : 7000,
+            'wdspref_courselimit' => isset($s->numberthreshold) ? (int) $s->numberthreshold : 8000,
             'wdspref_format' => 'topics'
         ];
 
@@ -112,7 +113,6 @@ class workdaystudent {
         // Get the unwanted or sepcifivally wanted count.
         $uwcount = count($unwants);
 
-
         // Build out the arrays.
         $userprefs->unwants = [];
         $userprefs->wants = [];
@@ -139,7 +139,7 @@ class workdaystudent {
 
         // Build the SQL.
         $usql = "SELECT *
-            FROM {block_wdspref_unwants}
+            FROM {block_wdsprefs_unwants}
              WHERE userid = $mshell->userid
                  AND sectionid IN ($mshell->sectionids)";
 
@@ -417,7 +417,7 @@ class workdaystudent {
         global $DB;
 
         // Build the cloned object.
-        $ap2 = clone($ap);
+        $ap2 = unserialize(serialize($ap));
 
         // Set start dates.
         $startdate = strtotime($period->Start_Date);
@@ -592,7 +592,7 @@ class workdaystudent {
         global $DB;
 
         // Build the cloned object.
-        $as2 = clone($as);
+        $as2 = unserialize(serialize($as));
 
         // Keep id, section_listing_id, idnumber, and status from $as and populate the rest from $section.
         $as2->course_section_definition_id = $section->Course_Section_Definition_ID;
@@ -671,7 +671,7 @@ class workdaystudent {
         global $DB;
 
         // Build the cloned object.
-        $ac2 = clone($ac);
+        $ac2 = unserialize(serialize($ac));
 
         // Keep the id and course_listing_id from $ac and populate the rest from $course.
         $ac2->academic_unit_id = $course->Academic_Unit_ID;
@@ -772,13 +772,14 @@ class workdaystudent {
             : $s->campusname . ' Standard Grading Scheme'; 
 
         // It exists and does not match registration status, update it.
-        if (isset($as->id) && isset($enrollment->Registered_Date) && (
-            $as->grading_scheme != $gsid ||
+        if (isset($as->id) &&
+            isset($enrollment->Registered_Date) &&
+            ($as->grading_scheme != $gsid ||
             $as->grading_basis != $grading_basis ||
             $as->credit_hrs != $enrollment->Units ||
             $as->registered_date != $enrollment->Registered_Date ||
-            $as->registration_status != $enrollment->Registration_Status
-        )) {
+            $as->registration_status != $enrollment->Registration_Status)
+        ) {
             self::dtrace("Found interstitial enrollment record that requires an update with id: $as->id.");
             $as = self::update_student_enrollment($s, $enrollment, $unenrolls, $enrolls, $donothings, $as);
 
@@ -833,7 +834,7 @@ class workdaystudent {
                       : time();
 
         // Build the cloned object.
-        $as2 = clone($as);
+        $as2 = unserialize(serialize($as));
 
         if (!isset($enrollment->Grading_Basis)) {
             mtrace("Error! Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
@@ -990,6 +991,11 @@ class workdaystudent {
     public static function check_unwant($section, $as) {
         global $DB;
 
+        // Short curcuit this in case we have no PMI.
+        if (!isset($section->PMI_Universal_ID)) {
+            return false;
+        }
+
         $parms = [
             'section' => $as->id,
             'pmi' => $section->PMI_Universal_ID
@@ -999,7 +1005,7 @@ class workdaystudent {
         $usql = "SELECT
             tea.universal_id,
             uw.unwanted
-            FROM {block_wdspref_unwants} uw
+            FROM {block_wdsprefs_unwants} uw
             INNER JOIN {enrol_wds_teachers} tea
                 ON tea.userid = uw.userid
             WHERE uw.sectionid = :section
@@ -1025,34 +1031,19 @@ class workdaystudent {
             // We do not have a record of this section being unwanted.
             if (!isset($unwanted->universal_id)) {
 
-echo"\nNot Unwanted\n";
-var_dump($unwanted);
-var_dump($as);
-die();
-
                 // Existing not-specifically-unwanted section, update it.
-      //          $as = self::update_section($section, $as);
+                $as = self::update_section($section, $as);
 
             // This section is specifically wanted by the Primary instructor.
             } else if ($section->PMI_Universal_ID == $unwanted->universal_id &&
                 $unwanted->unwanted == 0) {
 
-echo"\nWanted\n";
-var_dump($unwanted);
-var_dump($as);
-die();
-
-
                 // Existing specifically-wanted section, update it.
-        //        $as = self::update_section($section, $as);
+                $as = self::update_section($section, $as);
 
             // The section is unwanted, do not updated it, just return it so we can move on.
             } else {
-
-echo"\nUnwanted\n";
-var_dump($unwanted);
-var_dump($as);
-die();
+                mtrace("\n$as->section_listing_id is unwanted by $unwanted->universal_id.");
 
                 return $as; 
             }
@@ -1089,9 +1080,9 @@ die();
 
         // Ensure we have exactly 2 times (start and end).
         if (count($times) < 2) {
-
             // If we don't have both start and end times, log the issue and exit.
             self::dtrace("Invalid time format: $timepart");
+            var_dump($times);
             return [];
         }
 
@@ -1330,7 +1321,7 @@ die();
         global $DB;
 
         // Build the cloned object.
-        $au2 = clone($au);
+        $au2 = unserialize(serialize($au));
 
         // Keep the ids from $au and populate the rest from $unit.
         $au2->academic_unit_subtype = $unit->Academic_Unit_Subtype;
@@ -1733,6 +1724,18 @@ die();
         return $departments;
     }
 
+    public static function get_specified_period(string $courseid): array {
+        global $DB;
+
+        $parms = ['moodle_status' => $courseid];
+        $table = 'enrol_wds_sections';
+
+        // Get the actual data.
+        $periods = $DB->get_records($table, $parms);
+
+        return $periods;
+    }
+
     public static function get_current_periods($s) {
         global $DB;
 
@@ -1753,11 +1756,6 @@ die();
         // Get the actual data.
         $periods = $DB->get_records_sql($sql);
 
-        // TODO: Remove this shit.
-//        $forced = new stdClass();
-//        $forced->academic_period_id = "LSUAM_SPRING_2024";
-//        $periods["LSUAM_SPRING_2024"] = $forced;
-
         return $periods;
     }
 
@@ -1775,7 +1773,7 @@ die();
         return $sections;
     }
 
-    public static function get_period_enrollments($s, $period = null, $fdate = null) {
+    public static function get_period_enrollments($s, $period, $fdate = null) {
         // Set the endpoint.
         $endpoint = 'registrations';
 
@@ -1883,7 +1881,7 @@ die();
         $table = 'enrol_wds_programs';
 
         // Build the two objects to compare.
-        $pgm1 = clone($pgm);
+        $pgm1 = unserialize(serialize($pgm));
 
         // Populate the cloned object.
         $pgm1->academic_unit_id = $program->Academic_Unit_ID;
@@ -2744,7 +2742,7 @@ die();
         }
 
         // Build the two objects to compare.
-        $stu1 = clone($stu);
+        $stu1 = unserialize(serialize($stu));
         $stu2 = new stdClass();
 
         // Un/populate the two objects.
@@ -2955,7 +2953,7 @@ die();
         $email = $teacher->Instructor_Email;
 
         // Build the two objects to compare.
-        $tea1 = clone($tea);
+        $tea1 = unserialize(serialize($tea));
         $tea2 = new stdClass();
 
         // Un/populate the two objects.
@@ -3116,7 +3114,8 @@ die();
             } else {
 
                 // Build out the data object.
-                $data = clone($enr);
+                $data = unserialize(serialize($enr));
+
                 $data->universal_id = $universalid;
                 $data->section_listing_id = $sectionid;
                 $data->prevrole = $enr->role;
@@ -4156,7 +4155,9 @@ die();
                 $mtrace = print(".");
             }
 
-            return $mtrace;
+            if (PHP_SAPI === 'cli') {
+                return $mtrace;
+            }
         }
     }
 
@@ -4207,20 +4208,41 @@ die();
     }
 
     // I do not know if I will need this and it is sorta wasteful.
-    public static function wds_get_insert_missing_students() {
+    public static function wds_get_insert_missing_students($courseid = null) {
         global $DB;
 
-        // SQL to get all the students without demographic data regardless of period.
-        $sql = "SELECT stuenr.universal_id
-            FROM {enrol_wds_student_enroll} stuenr
-                LEFT JOIN {enrol_wds_students} stu
-                    ON stu.universal_id = stuenr.universal_id
-            WHERE stuenr.status = 'enroll'
-                AND stu.id IS NULL
-            GROUP BY stuenr.universal_id";
+        if (!is_null($courseid)) {
+            $parms = ['courseid' => $courseid];
 
-        // Fetch the data from the idb.
-        $missingstudents = $DB->get_records_sql($sql);
+            // SQL to get all the students without demographic data for this course.
+            $sql = "SELECT stuenr.universal_id
+                FROM {enrol_wds_student_enroll} stuenr
+                    INNER JOIN {enrol_wds_sections} sec
+                        ON sec.section_listing_id = stuenr.section_listing_id
+                        AND sec.moodle_status = :courseid
+                    LEFT JOIN {enrol_wds_students} stu
+                        ON stu.universal_id = stuenr.universal_id
+                WHERE stuenr.status = 'enroll'
+                    AND stu.id IS NULL
+                GROUP BY stuenr.universal_id";
+
+            // Fetch the data from the idb.
+            $missingstudents = $DB->get_records_sql($sql, $parms);
+
+        } else {
+
+            // SQL to get all the students without demographic data regardless of period.
+            $sql = "SELECT stuenr.universal_id
+                FROM {enrol_wds_student_enroll} stuenr
+                    LEFT JOIN {enrol_wds_students} stu
+                        ON stu.universal_id = stuenr.universal_id
+                WHERE stuenr.status = 'enroll'
+                    AND stu.id IS NULL
+                GROUP BY stuenr.universal_id";
+
+            // Fetch the data from the idb.
+            $missingstudents = $DB->get_records_sql($sql);
+        }
 
         // Get settings.
         $s = workdaystudent::get_settings();
@@ -4343,12 +4365,12 @@ die();
         return $enrollments;
     }
 
-    public static function wds_get_student_enrollments($period, $coursesection = null) {
+    public static function wds_get_student_enrollments($period, $courseid = null) {
         global $DB;
 
-        $reprocesssection = is_null($coursesection) ?
+        $reprocesssection = is_null($courseid) ?
             '' :
-            " AND sec.id = '$coursesection'";
+            " AND c.id = '$courseid'";
 
         $sql = "SELECT stuenr.id AS enrollment_id,
                 stu.userid AS userid,
@@ -4379,8 +4401,7 @@ die();
             WHERE sec.academic_period_id = '$period->academic_period_id'
                 AND sec.idnumber IS NOT NULL
                 AND sec.controls_grading = 1
-#// TODO: REMOVE Completed.
-                AND stuenr.status IN ('Completed', 'enroll', 'unenroll')
+                AND stuenr.status IN ('enroll', 'unenroll')
                 $reprocesssection
             ORDER BY sec.section_listing_id ASC";
 
@@ -5220,7 +5241,7 @@ class wdscronhelper {
         }
     }
 
-    public static function cronstuenroll() {
+    public static function cronstuenroll($courseid = null) {
         // Include the main Moodle config.
         require_once(__DIR__ . '/../../../config.php');
 
@@ -5230,8 +5251,16 @@ class wdscronhelper {
         // Get settings.
         $s = workdaystudent::get_settings();
 
-        // Get the sections.
-        $periods = workdaystudent::get_current_periods($s);
+        // If we are reprocessing, make sure we don't reprocess everything.
+        if (!is_null($courseid)) {
+
+            // Get the period specific to this course.
+            $periods = workdaystudent::get_specified_period($courseid);
+        } else {
+
+            // Get the current periods.
+            $periods = workdaystudent::get_current_periods($s);
+        }
 
         // Get a count for later.
         $numgrabbed = count($periods);
@@ -5282,7 +5311,7 @@ class wdscronhelper {
             // Count the number of enrollments.
             $enrollmentcount = count($enrollments);
 
-            // Log how long it took to fetch enrollments.
+            // Log how long it took to fetch enrollments.l
             mtrace("The webservice took $enrollmentelapsed seconds to fetch " .
             "$enrollmentcount enrollments in $period->academic_period_id.");
 
@@ -5548,11 +5577,18 @@ class wdscronhelper {
         }
     }
 
-    public static function cronmenrolls() {
+    public static function cronmenrolls($courseid = null) {
         $s = workdaystudent::get_settings();
 
-        // Get the current periods.
-        $periods = workdaystudent::get_current_periods($s);
+        if (!is_null($courseid)) {
+
+            // Get the period for this courseid.
+            $periods = workdaystudent::get_specified_period($courseid);
+        } else {
+
+            // Get the current periods.
+            $periods = workdaystudent::get_current_periods($s);
+        }
 
         // Get the period count.
         $periodcount = count($periods);

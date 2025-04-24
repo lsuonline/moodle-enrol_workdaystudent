@@ -139,7 +139,7 @@ class workdaystudent {
 
         // Build the SQL.
         $usql = "SELECT *
-            FROM {block_wdspref_unwants}
+            FROM {block_wdsprefs_unwants}
              WHERE userid = $mshell->userid
                  AND sectionid IN ($mshell->sectionids)";
 
@@ -1005,7 +1005,7 @@ class workdaystudent {
         $usql = "SELECT
             tea.universal_id,
             uw.unwanted
-            FROM {block_wdspref_unwants} uw
+            FROM {block_wdsprefs_unwants} uw
             INNER JOIN {enrol_wds_teachers} tea
                 ON tea.userid = uw.userid
             WHERE uw.sectionid = :section
