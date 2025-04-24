@@ -106,6 +106,36 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         mtrace("Finished processing Moodle Student enrollments in $elapsedtime seconds.");
     }
 
+    /**
+     * Master method for kicking off Reprocessing
+     *
+     * @return boolean
+     */
+    public static function run_workdaystudent_reprocess($courseid) {
+        global $CFG;
+
+        // Fetch the main class.
+        require_once('classes/workdaystudent.php');
+
+        // Set the start time.
+        $starttime = microtime(true);
+
+        mtrace("Starting Moodle Student enrollments.");
+
+        // Process wds enrollments.
+        $cronstuenroll = wdscronhelper::cronstuenroll($courseid);
+
+        // Fetch and update any missing students not in an active period.
+        $nonactive = workdaystudent::wds_get_insert_missing_students($courseid);
+
+        // Enroll the students into courses and groups.
+        $cronenrollments = wdscronhelper::cronmenrolls($courseid);
+
+        $endtime = microtime(true);
+        $elapsedtime = round($endtime - $starttime, 2);
+
+        mtrace("Finished processing Moodle Student enrollments in $elapsedtime seconds.");
+    }
 
 
     /**

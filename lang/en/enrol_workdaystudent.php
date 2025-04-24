@@ -29,8 +29,8 @@ defined('MOODLE_INTERNAL') || die();
 $string['pluginname'] = 'Workday Student Enrollment';
 $string['pluginname_desc'] = 'LSU Workday Student Enrollment';
 $string['workdaystudent:periodconfig'] = 'Period Configuration';
-$string['reprocess'] = 'Reprocess Workday Student';
-$string['workdaystudent:reprocess'] = 'Reprocess Workday Student';
+$string['reprocess'] = 'Reprocess Enrollment';
+$string['workdaystudent:reprocess'] = 'Reprocess Enrollment';
 $string['workdaystudent:delete'] = 'Delete Workday Student';
 $string['workdaystudent:showhide'] = 'Show/Hide Workday Student';
 

@@ -63,7 +63,7 @@ echo $OUTPUT->header();
 $starttime = microtime(true);
 
 echo"<pre>";
-enrol_workdaystudent_plugin::run_workdaystudent_full_enroll($courseid);
+enrol_workdaystudent_plugin::run_workdaystudent_reprocess($courseid);
 
 $elapsedtime = round(microtime(true) - $starttime, 3);
 mtrace("\n\nThis entire process took " . $elapsedtime . " seconds.");
