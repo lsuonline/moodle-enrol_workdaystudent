@@ -309,7 +309,8 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
  */
 function enrol_workdaystudent_extend_navigation_course($navigation, $course, $context) {
     // Make sure we can reprocess enrollments.
-    if (has_capability('enrol/workdaystudent:reprocess', $context)) {
+    if (is_siteadmin()) {
+    // if (has_capability('enrol/workdaystudent:reprocess', $context)) {
 
         // Set the url for the reprocesser.
         $url = new moodle_url('/enrol/workdaystudent/reprocess.php', array('courseid' => $course->id));
