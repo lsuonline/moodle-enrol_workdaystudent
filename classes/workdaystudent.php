@@ -1727,13 +1727,26 @@ class workdaystudent {
     public static function get_specified_period(string $courseid): array {
         global $DB;
 
-        $parms = ['moodle_status' => $courseid];
+        // Set the table.
         $table = 'enrol_wds_sections';
+
+        // Check if the $courseid consists of only digits.
+        if (ctype_digit((string) $courseid)) {
+
+            // It's a plain integer or numeric string.
+            $parms = ['moodle_status' => $courseid];
+        } else {
+
+            // It's a structured course section definition.
+            $parms = ['course_section_definition_id' => $courseid];
+        }
 
         // Get the actual data.
         $periods = $DB->get_records($table, $parms);
 
-        return $periods;
+        $period = [reset($periods)];
+        
+        return $period;
     }
 
     public static function get_current_periods($s) {
@@ -1780,15 +1793,22 @@ class workdaystudent {
         // Set up the paramaters array.
         $parms = [];
 
+        if (isset($period->courseid)) {
+            // Check if the $period->courseid consists of only digits.
+            if (!ctype_digit((string) $period->courseid)) {
+
+                // It's a structured course section definition.
+                $parms['Course_Section_Definition_ID'] = $period->courseid;
+                $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
+            }
+        }
+
         // Set some more parms up.
         if (!is_null($fdate)) {
             $parms['Last_Updated'] = $fdate;
         }
 
-        if (isset($period->course_section_definition_id)) {
-            $parms['Course_Section_Definition_ID'] = $period->course_section_definition_id;
-            $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
-        } else if (isset($period->course_subject_abbreviation)) {
+        if (isset($period->course_subject_abbreviation)) {
             $parms['Subject_Code'] = $period->course_subject_abbreviation;
             $parms['Academic_Period!Academic_Period_ID'] = $period->academic_period_id;
         } else {
@@ -4211,15 +4231,32 @@ class workdaystudent {
     public static function wds_get_insert_missing_students($courseid = null) {
         global $DB;
 
+        // Make sure we ahve something for course id.
         if (!is_null($courseid)) {
-            $parms = ['courseid' => $courseid];
+
+            // Check if the $courseid consists of only digits.
+            if (ctype_digit((string) $courseid)) {
+
+                // It's a plain integer or numeric string.
+                $parms = ['courseid' => $courseid];
+
+                // Finish out the sql.
+                $andsql = 'AND sec.moodle_status = :courseid';
+            } else {
+
+                // It's a structured course section definition.
+                $parms = ['courseid' => $courseid];
+
+                // Finish out the sql.
+                $andsql = 'AND sec.course_section_definition_id = :courseid';
+            }
 
             // SQL to get all the students without demographic data for this course.
             $sql = "SELECT stuenr.universal_id
                 FROM {enrol_wds_student_enroll} stuenr
                     INNER JOIN {enrol_wds_sections} sec
                         ON sec.section_listing_id = stuenr.section_listing_id
-                        AND sec.moodle_status = :courseid
+                        " . $andsql . "
                     LEFT JOIN {enrol_wds_students} stu
                         ON stu.universal_id = stuenr.universal_id
                 WHERE stuenr.status = 'enroll'
@@ -4368,9 +4405,32 @@ class workdaystudent {
     public static function wds_get_student_enrollments($period, $courseid = null) {
         global $DB;
 
-        $reprocesssection = is_null($courseid) ?
-            '' :
-            " AND c.id = '$courseid'";
+        // Build out the parms.
+        $parms = [];
+
+        // Add the academic period id parm.
+        $parms['apid'] = $period->academic_period_id;
+
+        $reprocesssection = '';
+
+        // If we have a courseid, figure shit out.
+        if (!is_null($courseid)) {
+
+            // The courseid parm.
+            $parms['courseid'] = $courseid;
+
+            // Check if the $courseid consists of only digits.
+            if (ctype_digit((string) $courseid)) {
+
+                // Build out the reprocessectionsql.
+                $reprocesssection = ' AND c.id = :courseid';
+            } else {
+
+                // Build out the reprocessectionsql.
+                $reprocesssection = ' AND sec.course_section_definition_id = :courseid';
+
+            }
+        }
 
         $sql = "SELECT stuenr.id AS enrollment_id,
                 stu.userid AS userid,
@@ -4398,14 +4458,14 @@ class workdaystudent {
                     AND tenr.role = 'primary'
                 LEFT JOIN {enrol_wds_students} stu
                     ON stu.universal_id = stuenr.universal_id
-            WHERE sec.academic_period_id = '$period->academic_period_id'
+            WHERE sec.academic_period_id = :apid
                 AND sec.idnumber IS NOT NULL
                 AND sec.controls_grading = 1
                 AND stuenr.status IN ('enroll', 'unenroll')
                 $reprocesssection
             ORDER BY sec.section_listing_id ASC";
 
-            $enrollments = $DB->get_records_sql($sql);
+            $enrollments = $DB->get_records_sql($sql, $parms);
 
             return $enrollments;
     }
@@ -5296,6 +5356,10 @@ class wdscronhelper {
             // Log that we're starting.
             mtrace("\nProcessing enrollments for $period->academic_period_id.");
 
+            if (!is_null($courseid)) {
+                $period->courseid = $courseid;
+            }
+
             // Set some times.
             $periodstart = microtime(true);
             $enrollmentstart = $periodstart;
@@ -5596,7 +5660,7 @@ class wdscronhelper {
         foreach ($periods as $period) {
 
             // Get all the enrollment for this period.
-            $enrollments = workdaystudent::wds_get_student_enrollments($period);
+            $enrollments = workdaystudent::wds_get_student_enrollments($period, $courseid);
 
             // Bulk enrollment.
             $wdsbulk = enrol_workdaystudent::wds_bulk_student_enrollments($enrollments);
@@ -6063,7 +6127,7 @@ class enrol_workdaystudent extends enrol_plugin {
             if (!$group) {
 
                 // We don't have a group, create it.
-                $groupid = workdaystudent::wds_create_course_group($courseid, $groupname);
+                $newgroupid = workdaystudent::wds_create_course_group($courseid, $groupname);
             }
 
             $groupid = isset($group->id) ? $group->id : $newgroupid;

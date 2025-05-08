@@ -30,5 +30,5 @@ require_once(__DIR__ . '/../../../../config.php');
 // Include the Workday Student helper class.
 require_once(__DIR__ . '/../workdaystudent.php');
 
-wdscronhelper::cronmenrolls();
+wdscronhelper::cronmenrolls('69967');
 
