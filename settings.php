@@ -82,6 +82,14 @@ if ($ADMIN->fulltree) {
         $facultyroles[$frole] = $frname->name === "" ? $frname->shortname : $frname->name;
     }
 
+    // Get all roles from the DB.
+    $allroles = $DB->get_records('role');
+
+    foreach ($allroles as $nprole) {
+        // Use fullname if set, otherwise fallback to shortname.
+        $nonprimaryroles[$nprole->id] = trim($nprole->name) !== '' ? $nprole->name : $nprole->shortname;
+    }
+
     // Grab the course categories.
     $ccategories = $DB->get_records('course_categories', null, 'name', 'id,name');
 
@@ -234,7 +242,7 @@ if ($ADMIN->fulltree) {
             get_string('workdaystudent:nonprimaryrole', 'enrol_workdaystudent'),
             get_string('workdaystudent:nonprimaryrole_desc', 'enrol_workdaystudent'),
             'None',  // Default.
-            $facultyroles
+            $nonprimaryroles
         )
     );
 

@@ -644,7 +644,7 @@ class workdaystudent {
         // Create the object.
         $tas = new stdClass();
 
-        // Build the object from $section 
+        // Build the object from $section
         $tas->section_listing_id = $section->Section_Listing_ID;
         $tas->course_section_definition_id = $section->Course_Section_Definition_ID;
         $tas->section_number = $section->Section_Number;
@@ -769,7 +769,7 @@ class workdaystudent {
 
         $gsid = isset($enrollment->Student_Grading_Scheme_ID)
             ? $enrollment->Student_Grading_Scheme_ID
-            : $s->campusname . ' Standard Grading Scheme'; 
+            : $s->campusname . ' Standard Grading Scheme';
 
         // It exists and does not match registration status, update it.
         if (isset($as->id) &&
@@ -826,7 +826,7 @@ class workdaystudent {
         $regdate = isset($enrollment->Registered_Date)
                    ? self::dateconv($enrollment->Registered_Date)
                    : 0;
-        $dropdate = isset($enrollment->Drop_Date) 
+        $dropdate = isset($enrollment->Drop_Date)
                     ? self::dateconv($enrollment->Drop_Date)
                     : $wdate;
         $lastupdate = isset($enrollment->Last_Functionally_Updated)
@@ -1045,7 +1045,7 @@ class workdaystudent {
             } else {
                 mtrace("\n$as->section_listing_id is unwanted by $unwanted->universal_id.");
 
-                return $as; 
+                return $as;
             }
 
         // We have no record of this section, add it.
@@ -1194,7 +1194,7 @@ class workdaystudent {
                     $existingrecord->end_time = $scheduleitem->end_time;
                     $DB->update_record($table, $existingrecord);
                 }
-            
+
                 // Remove handled items from the existingmap.
                 unset($existingmap[$scheduleitem->day]);
             } else {
@@ -1258,7 +1258,7 @@ class workdaystudent {
                 ) SEPARATOR \', \'
             ) AS day,
             sm.start_time,
-            sm.end_time 
+            sm.end_time
             FROM {enrol_wds_courses} cou
                 INNER JOIN {enrol_wds_sections} sec
                     ON cou.course_listing_id = sec.course_listing_id
@@ -1396,7 +1396,7 @@ class workdaystudent {
             // Grade for the registration in question.
             $gradeid = $grade->grade_id;
 
-            // Check to see if we're in finals or this is an interim grade. 
+            // Check to see if we're in finals or this is an interim grade.
             if ($gradetype == "finals") {
                 // Posting final grades.
                 $sdtype = "Student_Grades_Data";
@@ -1509,7 +1509,7 @@ class workdaystudent {
         if ($gradetype == "finals") {
             $wdendpoint = "Submit_Grades_for_Registrations_Request";
             $wddata = "Submit_Grades_for_Registrations_Data";
-            $bpparms = "<wd:Business_Process_Parameters>" . 
+            $bpparms = "<wd:Business_Process_Parameters>" .
                 "<wd:Auto_Complete>true</wd:Auto_Complete>" .
                 "<wd:Run_Now>true</wd:Run_Now>" .
                 "</wd:Business_Process_Parameters>";
@@ -1563,7 +1563,7 @@ class workdaystudent {
         $xmlstring = $xml->asXML();
 
         $xmlstr = self::cleanxml($xmlstring);
-    
+
         // Return the XML as a string
         return $xmlstr;
     }
@@ -1709,7 +1709,7 @@ class workdaystudent {
 
         $sql = 'SELECT CONCAT(p.id, "_",  c.id, "_", s.id) AS uniqueid,
                 c.course_subject_abbreviation,
-                p.academic_period_id 
+                p.academic_period_id
             FROM {enrol_wds_periods} p
                 INNER JOIN {enrol_wds_sections} s ON p.academic_period_id = s.academic_period_id
                 INNER JOIN {enrol_wds_courses} c ON s.course_listing_id = c.course_listing_id
@@ -1745,7 +1745,7 @@ class workdaystudent {
         $periods = $DB->get_records($table, $parms);
 
         $period = [reset($periods)];
-        
+
         return $period;
     }
 
@@ -2184,12 +2184,12 @@ class workdaystudent {
         usort($courses, function($a, $b) {
             // First comparison based on subject.
             $coursecomparison = strcmp($a->Course_Subject_Abbreviation, $b->Course_Subject_Abbreviation);
-    
+
             // If 'name' values are equal, compare based on 'count'
             if ($coursecomparison == 0) {
                 return strcmp($a->Course_Number, $b->Course_Number);
             }
-    
+
             return $coursecomparison;
         });
         return $courses;
@@ -2711,7 +2711,7 @@ class workdaystudent {
                     $stu->email . ',' .
                     $stu->school_id . ' - ' .
                     $stu->firstname . ' ' .
-                    $stu->lastname . ' is a dupe of remote user ' . 
+                    $stu->lastname . ' is a dupe of remote user ' .
                     $student->Universal_Id . ', ' .
                     $email . ', ' .
                     $lid . ', ' .
@@ -2723,7 +2723,7 @@ class workdaystudent {
             $stu = null;
 
         } else if (count($stus) == 1) {
-            // Grab the student from the array. 
+            // Grab the student from the array.
             self::dtrace("  Student found with universal_id: " .
                 "$student->Universal_Id, email: $email, school_id: $lid.");
             $stu = reset($stus);
@@ -2883,7 +2883,7 @@ class workdaystudent {
 
     public static function create_update_iteacher($s, $teacher) {
         $starttime = microtime(true);
-        
+
         // Check if the teacher exists.
         $tea = self::check_iteacher($s, $teacher);
 
@@ -3451,7 +3451,7 @@ class workdaystudent {
 
         // Make sure we're using their preferred names.
         if (is_null($student->preferred_firstname)
-            || $student->firstname == $student->preferred_firstname) { 
+            || $student->firstname == $student->preferred_firstname) {
             $user->firstname = $student->firstname;
         } else {
             $user->firstname = $student->preferred_firstname;
@@ -3459,7 +3459,7 @@ class workdaystudent {
 
         // Make sure we're using their preferred names.
         if (is_null($student->preferred_lastname)
-            || $student->lastname == $student->preferred_lastname) { 
+            || $student->lastname == $student->preferred_lastname) {
             $user->lastname = $student->lastname;
         } else {
             $user->lastname = $student->preferred_lastname;
@@ -3731,7 +3731,7 @@ class workdaystudent {
         // Build the SQL to retreive the required data to build shells for primary instructors.
         $sql = "SELECT
             $uniquer,
-            per.period_year, 
+            per.period_year,
             per.period_type,
             per.start_date,
             per.end_date,
@@ -4099,7 +4099,7 @@ class workdaystudent {
         global $DB;
 
         // If we've sent the teacher flag, use the teacher table.
-        $table = $teacher ? 'enrol_wds_teacher_enroll' : 'enrol_wds_student_enroll'; 
+        $table = $teacher ? 'enrol_wds_teacher_enroll' : 'enrol_wds_student_enroll';
 
         // Build out the object.
         $enrrecord = new stdClass();
@@ -4337,7 +4337,7 @@ class workdaystudent {
                         continue;
                     }
 
-                    // We could probably use create_istudent, but this is safer. 
+                    // We could probably use create_istudent, but this is safer.
                     $stu = workdaystudent::create_update_istudent($s, $student);
 
                     // Insert the metadata for the student we just found and inserted.
@@ -4378,7 +4378,7 @@ class workdaystudent {
             tenr.role,
             tenr.prevrole,
             tenr.status AS moodle_enrollment_status,
-            tenr.prevstatus AS moodle_prev_status 
+            tenr.prevstatus AS moodle_prev_status
             FROM {course} c
                 INNER JOIN {enrol_wds_sections} sec
                     ON sec.idnumber = c.idnumber
@@ -4569,9 +4569,9 @@ class workdaystudent {
 
         // Get the default News Forum / Announcements. We may have more than one!!!
         $newsforums = $DB->get_records('forum', ['course' => $courseid, 'type' => 'news']);
-    
+
         // Get all course modules, excluding the default forum, if it exists.
-        $sql = "SELECT cm.id 
+        $sql = "SELECT cm.id
             FROM {course_modules} cm
             JOIN {modules} m ON cm.module = m.id
                 AND cm.deletioninprogress = 0
@@ -5261,7 +5261,7 @@ class wdscronhelper {
                             "Missing Email";
 
                         // Log that something vital was missing.
-                        mtrace("\nERROR: Missing either UID: $uid or email: " . 
+                        mtrace("\nERROR: Missing either UID: $uid or email: " .
                             "$email - $student->First_Name $student->Last_Name.");
 
                         continue;
@@ -5292,7 +5292,7 @@ class wdscronhelper {
                 // Calculate the elapsed time.
                 $elapsed = round($timeend - $timestart, 2);
 
-                mtrace("\nFinished populating the interstitial student db for " . 
+                mtrace("\nFinished populating the interstitial student db for " .
                     "$period->academic_period_id.");
                 mtrace("It took $elapsed seconds to find and process $numathletes " .
                     "athletes across $studentcounter students in $s->campusname for " .
@@ -5415,7 +5415,7 @@ class wdscronhelper {
 
         mtrace("Beginning user reconciliation.");
 
-        // Loop through the above and insert userids for unmatched Moodle users.        
+        // Loop through the above and insert userids for unmatched Moodle users.
         foreach($matchers as $matcher) {
             // Fetch userids from matching teachers.
             $reconciles = workdaystudent::reconcile_interstitial_users('teacher', $matcher);
@@ -5539,7 +5539,7 @@ class wdscronhelper {
         $periodcount = count($periods);
         mtrace("Creating courses for $periodcount periods.");
 
-         
+
         // Loop through them.
         foreach ($periods as $period) {
 
@@ -5555,7 +5555,7 @@ class wdscronhelper {
             if (!empty($mshells)) {
                 foreach ($mshells as $mshell) {
 
-                    // Generate the course name. 
+                    // Generate the course name.
                     $mshell->fullname = workdaystudent::process_shell_name($s, $mshell);
 
                     // Generate the numerical course number for threshold checks.
@@ -5997,7 +5997,7 @@ class enrol_workdaystudent extends enrol_plugin {
                         // Unenroll the instructor from the course.
                         $enrollplugin->unenrol_user($instance, $userid);
 
-                        // Last empty WDS groupshould be deleted. 
+                        // Last empty WDS groupshould be deleted.
                         groups_delete_group($groupid);
 
                         // Delete the abandoned course.
@@ -6234,7 +6234,7 @@ class enrol_workdaystudent extends enrol_plugin {
                         ' is missing their email, they were not unenrolled from ' .
                         $enrollment->department . ' ' .
                         $enrollment->course_number . ' ' .
-                        $enrollment->section_number . 
+                        $enrollment->section_number .
                         ' - courseid: ' .
                         $enrollment->courseid . '.');
 
