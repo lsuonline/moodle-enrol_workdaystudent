@@ -4843,46 +4843,19 @@ class workdaystudent {
     public static function handle_instructor_change($section, $existingsection) {
         global $DB;
 
-        if (!isset($section->course_listing_id)) {
-
-            if (isset($section->Section_Listing_ID)) {
-
-                // Set the parms for getting the section obj.
-                $secrecparms = ['section_listing_id' => $section->Section_Listing_ID];
-
-                // Set this for later as we do not know which we have.
-                $seclistid = $section->Section_Listing_ID;
-            } else {
-
-                // Set the parms for getting the section obj.
-                $secrecparms = ['section_listing_id' => $section->section_listing_id];
-
-                // Set this for later as we do not know which we have.
-                $seclistid = $section->section_listing_id;
-            }
-
-            // Get the section record in full.
-            $secrec = $DB->get_record('enrol_wds_sections', $secrecparms);
-
-            // Set this to the section for future use.
-            $section->course_listing_id = $secrec->course_listing_id;
-        }
-
         // Check if PMI has changed.
         if (!isset($section->PMI_Universal_ID) || !isset($existingsection->id)) {
             return false;
         }
 
         // Get the old primary instructor for this section.
-        $oldisql = "SELECT tea.*, tenr.id AS enrollment_id
+        $sql = "SELECT tea.*, tenr.id AS enrollment_id
                 FROM {enrol_wds_teacher_enroll} tenr
                 JOIN {enrol_wds_teachers} tea ON tea.universal_id = tenr.universal_id
                 WHERE tenr.section_listing_id = :sectionid
                 AND tenr.role = 'primary'";
 
-        $oldiparms = ['sectionid' => $seclistid];
-
-        $oldinstructor = $DB->get_record_sql($oldisql, $oldiparms);
+        $oldinstructor = $DB->get_record_sql($sql, ['sectionid' => $section->Section_Listing_ID]);
 
         // If no old instructor or same instructor, no change needed.
         if (!$oldinstructor || $oldinstructor->universal_id === $section->PMI_Universal_ID) {
@@ -4890,8 +4863,8 @@ class workdaystudent {
         }
 
         // We have a change in PMI. Handle it.
-        workdaystudent::dtrace("PMI change detected for section {$seclistid}" .
-           " Old: {$oldinstructor->universal_id}, New: {$section->PMI_Universal_ID}");
+        workdaystudent::dtrace("PMI change detected for section {$section->Section_Listing_ID}
+            Old: {$oldinstructor->universal_id}, New: {$section->PMI_Universal_ID}");
 
         // Get the course ID if already created.
         $courseid = null;
@@ -4909,9 +4882,9 @@ class workdaystudent {
 
             // Update enrollment record.
             workdaystudent::insert_update_teacher_enrollment(
-                $seclistid,
+                $section->Section_Listing_ID,
                 $oldinstructor->universal_id,
-                'teacher',
+                'teacher', // Demote from primary.
                 'unenroll'
             );
 
@@ -4962,53 +4935,6 @@ class workdaystudent {
             }
         }
 
-        // Check if the instructor is still teaching other sections in this course.
-        $othersectionssql = "SELECT COUNT(*)
-            FROM {enrol_wds_teacher_enroll} tenr
-            INNER JOIN {enrol_wds_sections} sec
-                ON tenr.section_listing_id = sec.section_listing_id
-            WHERE sec.academic_period_id = :periodid
-                AND tenr.universal_id = :uid
-                AND tenr.role = 'primary'
-                AND sec.controls_grading = 1
-                AND sec.course_listing_id = :clid
-                AND tenr.section_listing_id != :currentsectionid
-                AND tenr.status IN ('enroll', 'enrolled')";
-
-        $othersectionsparms = [
-            'uid' => $oldinstructor->universal_id,
-            'periodid' => $section->academic_period_id,
-            'courseid' => $courseid,
-            'clid' => $section->course_listing_id,
-            'currentsectionid' => $seclistid
-        ];
-
-        $stillteachingothersections = $DB->count_records_sql($othersectionssql, $othersectionsparams) > 0;
-
-        if ($stillteachingothersections) {
-
-            // Instructor still teaches other sections in this course - just update the section record.
-            workdaystudent::dtrace("Keeping instructor {$oldinstructor->universal_id} enrolled in course {$courseid} as they still teach other sections.");
-
-            // Update the section record to move it to pending status
-            $sectionrecord = new stdClass();
-            $sectionrecord->id = $existingsection->id;
-            $sectionrecord->idnumber = null;
-            $sectionrecord->moodle_status = 'pending';
-            $DB->update_record('enrol_wds_sections', $sectionrecord);
-
-            // Update enrollment record for this specific section
-            workdaystudent::insert_update_teacher_enrollment(
-                $seclistid,
-                $oldinstructor->universal_id,
-                'teacher',
-                'unenrolled'
-            );
-
-            // We're teaching another section in this shell, so return now.
-            return true;
-        }
-
         if (!$hasmaterials) {
 
             // Course has no materials, unenroll instructor and delete course.
@@ -5034,6 +4960,8 @@ class workdaystudent {
             // IMPORTANT: Unset the course's idnumber to prevent conflicts with new shells.
             $courseupdate = new stdClass();
             $courseupdate->id = $courseid;
+
+    // TODO: Do not do this if there are sections still being taught in this shell.
             $courseupdate->idnumber = '';
             $DB->update_record('course', $courseupdate);
 
@@ -5049,7 +4977,7 @@ class workdaystudent {
 
         // Update enrollment record.
         workdaystudent::insert_update_teacher_enrollment(
-            $seclistid,
+            $section->Section_Listing_ID,
             $oldinstructor->universal_id,
             'teacher',
             'unenrolled'
