@@ -848,7 +848,7 @@ class workdaystudent {
         $as2 = unserialize(serialize($as));
 
         if (!isset($enrollment->Grading_Basis)) {
-            mtrace("Error! Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
+            mtrace("*** Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
         }
 
         // Keep the id, section_listing_id, and $universal_id from $as and populate the rest from aenrollment.
