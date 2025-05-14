@@ -129,6 +129,9 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Set the start time.
         $starttime = microtime(true);
 
+        // First handle instructor changes.
+        workdaystudent::reprocess_instructor_enrollments($courseid);
+
         foreach ($sections as $section) {
 
             mtrace("Starting Moodle Student enrollments for $section->section_listing_id..");
