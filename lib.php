@@ -279,7 +279,7 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
 
         // Send to each admin.
         foreach ($users as $user) {
-            email_to_user($user, ues::_s('pluginname'), sprintf('Workday Student Enrollment Begun [%s]', $CFG->wwwroot), $emailcontent);
+            email_to_user($user, get_string('pluginname', 'enrol_workdaystudent'), sprintf('Workday Student Enrollment Begun [%s]', $CFG->wwwroot), $emailcontent);
         }
     }
 

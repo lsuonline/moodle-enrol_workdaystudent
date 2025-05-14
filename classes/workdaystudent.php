@@ -2683,8 +2683,7 @@ class workdaystudent {
 
         // Debug this connection.
         if ($CFG->debugdisplay == 1) {
-
-// TODO: readd            curl_setopt($ch, CURLOPT_VERBOSE, true);
+            // TODO: curl_setopt($ch, CURLOPT_VERBOSE, true);
         }
 
         // Get the data.
@@ -4660,27 +4659,27 @@ class workdaystudent {
 
         $sql = "SELECT g.id AS groupid,
                 g.name AS groupname
-            FROM mdl_course c
-                INNER JOIN mdl_enrol_wds_sections sec
+            FROM {course} c
+                INNER JOIN {enrol_wds_sections} sec
                     ON sec.idnumber = c.idnumber
                     AND sec.moodle_status = c.id
-                INNER JOIN mdl_enrol_wds_courses cou
+                INNER JOIN {enrol_wds_courses} cou
                     ON cou.course_listing_id = sec.course_listing_id
-                INNER JOIN mdl_enrol_wds_teacher_enroll tenr
+                INNER JOIN {enrol_wds_teacher_enroll} tenr
                     ON sec.section_listing_id = tenr.section_listing_id
-                INNER JOIN mdl_enrol_wds_teachers tea
+                INNER JOIN {enrol_wds_teachers} tea
                     ON tea.universal_id = tenr.universal_id
-                INNER JOIN mdl_groups g
+                INNER JOIN {groups} g
                     ON g.courseid = c.id
                     AND g.name = CONCAT(
                         cou.course_subject_abbreviation, ' ',
                         cou.course_number, ' ',
                         sec.section_number
                     )
-                INNER JOIN mdl_user u
+                INNER JOIN {user} u
                     ON u.id = tea.userid
                     AND u.idnumber = tea.universal_id
-                INNER JOIN mdl_groups_members gm
+                INNER JOIN {groups_members} gm
                     ON g.id = gm.groupid
                     AND gm.userid = u.id
             WHERE sec.controls_grading = 1

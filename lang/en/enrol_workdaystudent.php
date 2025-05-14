@@ -147,3 +147,4 @@ $string['wds:massupdate_sfail'] = 'Student updates failed!';
 $string['wds:massupdate_fsuccess'] = 'Successfully updated all faculty to match their interstitial DB counterparts.';
 $string['wds:massupdate_ffail'] = 'Faculty updates failed!';
 $string['wds:massupdate_dberror'] = 'Database Error!';
+$string['wds:access_error'] = 'You do not have access to do this.';
