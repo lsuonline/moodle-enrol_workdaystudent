@@ -2813,14 +2813,21 @@ class workdaystudent {
         // Get the student legacy ID from the object.
         $lid = self::get_email_or_idnumber($s, $student, 'Legacy_ID');
 
-        // Set up the SQL to look for the student in the LMS.
-        $sql = 'SELECT *
-                FROM {enrol_wds_students} stu
-                WHERE stu.universal_id = "' . $student->Universal_Id . '"
-                OR stu.username = "' . \core_text::strtolower($email) . '"
-                OR stu.email = "' . \core_text::strtolower($email) . '"';
+        // Build out the parms.
+        $parms = [
+            'uid' => $student->Universal_Id,
+            'username' => \core_text::strtolower($email),
+            'email' => \core_text::strtolower($email)
+        ];
 
-        $stus = $DB->get_records_sql($sql);
+        // Set up the SQL to look for the student in the LMS.
+        $sql = "SELECT *
+            FROM {enrol_wds_students} stu
+            WHERE stu.universal_id = :uid
+                OR stu.username = :username
+                OR stu.email = :email";
+
+        $stus = $DB->get_records_sql($sql, $parms);
         if (count($stus) > 1) {
             foreach ($stus as $stu) {
                 $schoolid = !is_null($stu->school_id) ?
@@ -3050,12 +3057,17 @@ class workdaystudent {
             return false;
         }
 
+        $parms = [
+            'teacherid' => $teacher->Instructor_ID,
+            'email' => $teacher->Instructor_Email
+        ];
+
         $sql = 'SELECT *
                 FROM {enrol_wds_teachers} tea
-                WHERE tea.universal_id = "' . $teacher->Instructor_ID . '"
-                OR tea.email = "' . $teacher->Instructor_Email . '"';
+                WHERE tea.universal_id = :teacherid
+                OR tea.email = :email';
 
-        $teas = $DB->get_records_sql($sql);
+        $teas = $DB->get_records_sql($sql, $parms);
         if (count($teas) > 1) {
             foreach ($teas as $tea) {
                 mtrace('Error! IDB teacher ID: ' . $tea->id . ', ' .
@@ -3190,14 +3202,16 @@ class workdaystudent {
         // We do not have an instructor or a role.
         if (is_null($universalid) && is_null($role)) {
 
+            $parms = ['sectionid' => $sectionid];
+
             // Build the SQL to grab existing instructors.
             $usql = 'SELECT * FROM {enrol_wds_teacher_enroll} e
-                    WHERE e.section_listing_id = "' . $sectionid . '"
+                    WHERE e.section_listing_id = :sectionid
                         AND (e.status = "enroll" OR e.status = "enrolled")
                         AND (e.role = "teacher" OR e.role = "primary")';
 
             // Fetch the existing instructors.
-            $uenrs = $DB->get_records_sql($usql);
+            $uenrs = $DB->get_records_sql($usql, $parms);
 
             // Build an empty array for later use.
             $unenrolls = [];
@@ -3208,19 +3222,27 @@ class workdaystudent {
                 // Loop through them.
                 foreach ($uenrs as $uenr) {
 
+                    $uparms = [
+                        'status' => $uenr->status,
+                        'role' => $uenr->role,
+                        'prevrole' => $uenr->role,
+                        'sectionid' => $sectionid,
+                        'universalid' => $uenr->universal_id
+                    ];
+
                     // Build the sql to update their records.
                     $sql = 'UPDATE {enrol_wds_teacher_enroll} e
                                 SET e.status = "unenroll",
-                                    e.prevstatus = "' . $uenr->status . '",
-                                    e.role = "' . $uenr->role . '",
-                                    e.prevrole = "' . $uenr->role . '"
-                            WHERE e.section_listing_id = "' . $sectionid . '"
-                                AND e.universal_id = "' . $uenr->universal_id . '"
+                                    e.prevstatus = :status
+                                    e.role = :role
+                                    e.prevrole = :prevrole
+                            WHERE e.section_listing_id = :sectionid
+                                AND e.universal_id = :universalid
                                 AND (e.status = "enroll" OR e.status = "enrolled")
                                 AND (e.role = "teacher" OR e.role = "primary")';
 
                     // Execute the SQL.
-                    $unenrolls[] = $DB->execute($sql);
+                    $unenrolls[] = $DB->execute($sql, $uparms);
 
                     // Log what we did.
                     self::dtrace("  $uenr->universal_id set to unenroll in $sectionid.");
@@ -4630,6 +4652,12 @@ class workdaystudent {
     public static function get_wds_groups($courseid, $userid, $periodid) {
         global $DB;
 
+        $parms = [
+            'courseid' => $courseid,
+            'userid' => $userid,
+            'periodid' => $periodid
+        ];
+
         $sql = "SELECT g.id AS groupid,
                 g.name AS groupname
             FROM mdl_course c
@@ -4656,13 +4684,13 @@ class workdaystudent {
                     ON g.id = gm.groupid
                     AND gm.userid = u.id
             WHERE sec.controls_grading = 1
-                AND c.id = $courseid
-                AND u.id = $userid
-                AND sec.academic_period_id = '$periodid'
+                AND c.id = :courseid
+                AND u.id = :userid
+                AND sec.academic_period_id = :periodid
             GROUP BY g.id
             ORDER BY c.id ASC, tenr.id ASC";
 
-        $fgroups = $DB->get_records_sql($sql);
+        $fgroups = $DB->get_records_sql($sql, $parms);
 
         return $fgroups;
     }
@@ -4938,14 +4966,15 @@ class workdaystudent {
         // Get the plugin.
         $enrollplugin = enrol_get_plugin('workdaystudent');
 
-        // Handle old instructor's groups.
-        $groupname = $DB->get_field_sql(
-            "SELECT g.name FROM {groups} g
+        $gnparms = ['courseid' => $courseid, 'userid' => $oldinstructor->userid];
+
+        $gnsql = "SELECT g.name FROM {groups} g
              JOIN {groups_members} gm ON g.id = gm.groupid
              WHERE g.courseid = :courseid AND gm.userid = :userid
-             LIMIT 1",
-            ['courseid' => $courseid, 'userid' => $oldinstructor->userid]
-        );
+             LIMIT 1";
+
+        // Handle old instructor's groups.
+        $groupname = $DB->get_field_sql($gnsql, $gnparms);
 
         if ($groupname) {
             $group = $DB->get_record('groups', ['courseid' => $courseid, 'name' => $groupname]);
