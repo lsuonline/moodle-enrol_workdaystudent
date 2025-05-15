@@ -279,6 +279,29 @@ if ($ADMIN->fulltree) {
         )
     );
 
+    // Add the wdspref_daysprior setting.
+    $settings->add(
+        new admin_setting_configtext(
+            'enrol_workdaystudent/createprior',
+            get_string('workdaystudent:createprior', 'enrol_workdaystudent'),
+            get_string('workdaystudent:createprior_desc', 'enrol_workdaystudent'),
+            30,
+            PARAM_INT
+        )
+    );
+
+    // Add the wdspref_enrollprior setting.
+    $settings->add(
+        new admin_setting_configtext(
+            'enrol_workdaystudent/enrollprior',
+            get_string('workdaystudent:enrollprior', 'enrol_workdaystudent'),
+            get_string('workdaystudent:enrollprior_desc', 'enrol_workdaystudent'),
+            14,
+            PARAM_INT
+        )
+    );
+
+
     // Course visibility defaults.
     $settings->add(
         new admin_setting_configcheckbox(

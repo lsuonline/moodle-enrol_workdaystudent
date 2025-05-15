@@ -52,8 +52,8 @@ class workdaystudent {
      *
      * If personal preferences are missing, return the global settings or fallbacks.
      *
-     * @param int $userid The user ID.
-     * @return stdClass An object containing the user's preferences.
+     * @param @int $userid The user ID.
+     * @return @object An object containing the user's preferences.
      */
     public static function wds_get_faculty_preferences($mshell) {
         global $DB;
@@ -134,6 +134,13 @@ class workdaystudent {
         return $userprefs;
     }
 
+    /**
+     * Retrieves unwanted section records for a given shell.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $mshell Object containing course shell information
+     * @return @array Array of unwanted section records
+     */
     public static function wds_get_unwants($mshell) {
         global $DB;
 
@@ -148,6 +155,15 @@ class workdaystudent {
         return $unwants;
     }
 
+    /**
+     * Retrieves student data from Workday webservice endpoint.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $s Settings object
+     * @param @string $periodid Academic period ID
+     * @param @string $studentid Optional student ID to filter results (empty string for all students)
+     * @return @array | @bool Array of student objects or false if no students found
+     */
     public static function get_students($s, $periodid, $studentid) {
 
         // Log what we're doing.
@@ -205,6 +221,13 @@ class workdaystudent {
         return $students;
     }
 
+    /**
+     * Retrieves GUILD data from Workday webservice.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $s Settings object
+     * @return @array Guild objects from Workday
+     */
     public static function get_guild($s) {
 
         // Set the endpoint.
@@ -222,6 +245,13 @@ class workdaystudent {
         return $guilds;
     }
 
+    /**
+     * Extracts UID from SFPR student information.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $guild Guild object containing SFPR_Student information
+     * @return @object Modified guild object with extracted SFPR_StudentName and SFPR_UID
+     */
     public static function get_uid_sfpr($guild) {
         $student = $guild->SFPR_Student;
 
@@ -236,6 +266,14 @@ class workdaystudent {
         return $guild;
     }
 
+    /**
+     * Retrieves period dates from Workday.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $s Settings object
+     * @param @object $period Period object containing Academic_Period_ID
+     * @return @array Date objects for the specified period
+     */
     public static function get_period_dates($s, $period) {
 
         // Set the endpoint.
@@ -255,6 +293,14 @@ class workdaystudent {
         return $dates;
     }
 
+    /**
+     * Retrieves post-grade dates from Workday.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $s Settings object
+     * @param @object $period Period object containing Academic_Period_ID
+     * @return @object Formatted dateobj with timestamp values for academic dates
+     */
     public static function get_pg_dates($s, $period) {
 
         // Set the endpoint.
@@ -1220,8 +1266,8 @@ class workdaystudent {
     /**
      * Store the schedule (add, update, or delete records) based on the provided data.
      *
-     * @param array $schedule An array of stdClass objects containing the schedule data.
-     * @return void
+     * @param @array $schedule An array of stdClass objects containing the schedule data.
+     * @return @void
      */
     public static function wds_store_schedules($section, $schedules) {
         global $DB;
@@ -2659,8 +2705,7 @@ class workdaystudent {
     /**
      * Gets the data from the webservice endpoint.
      *
-     * @param  @object $s
-     *
+     * @param @object $s
      * @return @array of @objects
      */
     public static function get_data($s) {
@@ -4051,6 +4096,14 @@ class workdaystudent {
         return null;
     }
 
+    /**
+     * Creates or updates a Moodle course shell based on shell information.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $mshell Object containing shell information
+     * @param @object $userprefs Object containing user preferences for course creation
+     * @return @object | @bool The created/updated Moodle course object or false on failure
+     */
     public static function create_moodle_shell($mshell, $userprefs) {
         global $CFG, $DB;
 
@@ -4166,6 +4219,13 @@ class workdaystudent {
         return $moodlecourse;
     }
 
+    /**
+     * Builds a standardized idnumber for Moodle course shell.
+     *
+     * @package enrol_workdaystudent
+     * @param @object $mshell Shell information object
+     * @return @string Formatted idnumber for the course
+     */
     public static function build_mshell_idnumber($mshell) {
 
         // Build out the idnumber.
@@ -4299,9 +4359,8 @@ class workdaystudent {
     /**
      * Finds similar objects.
      *
-     * @param  @object $obj1
-     * @param  @object $obj2
-     *
+     * @param @object $obj1
+     * @param @object $obj2
      * @return @float $similarity
      */
     public static function wdstu_compareobjects($obj1, $obj2) {
@@ -4361,10 +4420,9 @@ class workdaystudent {
      *
      * @package   enrol_workdaystudent
      *
-     * @param     @object $emaildata
-     * @param     @object $s
-     *
-     * @return    @bool
+     * @param @object $emaildata
+     * @param @object $s
+     * @return @bool
      */
     public static function send_wdstu_email($emaildata, $s) {
         global $CFG, $DB;
@@ -4863,9 +4921,9 @@ class workdaystudent {
      * Handles instructor changes for a section, properly unenrolling old instructors
      * and managing course shells.
      *
-     * @param object $section The section object from Workday
-     * @param object $existingsection The existing section from the database
-     * @return bool Success status
+     * @param @object $section The section object from Workday
+     * @param @object $existingsection The existing section from the database
+     * @return @bool Success status
      */
     public static function handle_instructor_change($section, $existingsection) {
         global $DB;
@@ -5089,8 +5147,8 @@ class workdaystudent {
     /**
      * Reprocesses instructor enrollments for a specific course.
      *
-     * @param int $courseid The course ID to reprocess
-     * @return bool Success status
+     * @param @int $courseid The course ID to reprocess
+     * @return @bool Success status
      */
     public static function reprocess_instructor_enrollments($courseid) {
         global $DB;
@@ -6279,9 +6337,9 @@ class enrol_workdaystudent extends enrol_plugin {
 
     /**
      * Add new instance of enrol plugin.
-     * @param object $course
-     * @param array $fields instance fields
-     * @return int id of new instance, null if can not be created
+     * @param @object $course
+     * @param @array $fields instance fields
+     * @return @int id of new instance, null if can not be created
      */
 
     public static function add_enroll_instance($course) {
