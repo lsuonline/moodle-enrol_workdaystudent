@@ -5267,7 +5267,16 @@ die();
                 continue;
             }
 
-            $updatedsection = reset($updatedsections);
+            if (is_array($updatedsections)) {
+                $updatedsection = reset($updatedsections);
+            } else {
+                if (is_object($updatedsections)) {
+                    $updatedsection = $updatedsections;
+                } else {
+                    mtrace("Could not fetch updated section data for: $section->section_listing_id");
+                    continue;
+                }
+            }
 
             // Check and handle instructor changes.
             workdaystudent::handle_instructor_change($updatedsection, $section);
