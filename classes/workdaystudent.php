@@ -647,6 +647,7 @@ class workdaystudent {
         $as2 = unserialize(serialize($as));
 
         // Keep id, section_listing_id, idnumber, and status from $as and populate the rest from $section.
+
         $as2->course_section_definition_id = $section->Course_Section_Definition_ID;
         $as2->section_number = $section->Section_Number;
         $as2->course_definition_id = $section->Course_Definition_ID;
@@ -3938,6 +3939,7 @@ class workdaystudent {
             per.period_type,
             per.start_date,
             per.end_date,
+            per.academic_period_id,
             cou.course_subject_abbreviation,
             cou.course_subject,
             cou.course_abbreviated_title,
@@ -4220,6 +4222,91 @@ class workdaystudent {
     }
 
     /**
+     * Gets future and current taught academic periods.
+     *
+     * @return @array Formatted array of periods.
+     */
+    public static function get_current_taught_periods($mshell): array {
+        global $DB;
+
+        // Get the user's idnumber.
+        $user = $DB->get_record('user', ['id' => $mshell->userid]);
+
+        // Set this.
+        $uid = $user->idnumber;
+
+        // Get settings to limit semesters to current ones.
+        $s = workdaystudent::get_settings();
+
+        // Set the semester range for getting future and recent semesters.
+        $fsemrange = isset($s->brange) ? ($s->brange * 86400) : 0;
+
+        // Build the SQL.
+        $sql = "SELECT p.academic_period_id,
+                p.period_type,
+                p.period_year,
+                p.academic_period
+            FROM {enrol_wds_periods} p
+                INNER JOIN {enrol_wds_sections} sec
+                    ON sec.academic_period_id = p.academic_period_id
+                INNER JOIN {enrol_wds_teacher_enroll} tenr
+                    ON tenr.section_listing_id = sec.section_listing_id
+            WHERE tenr.universal_id = :userid
+                AND p.start_date < UNIX_TIMESTAMP() + :fsemrange
+                AND p.end_date > UNIX_TIMESTAMP()
+                AND p.academic_period_id = :periodid
+            GROUP BY p.academic_period_id
+                HAVING COUNT(p.academic_period_id) > 1
+            ORDER BY p.start_date ASC, p.period_type ASC";
+
+        // Use named parameters for security.
+        $parms = [
+            'userid' => $uid,
+            'fsemrange' => $fsemrange,
+            'periodid' => $mshell->academic_period_id
+        ];
+
+        // Get the actual data.
+        $records = $DB->get_records_sql($sql, $parms);
+
+        // Build the periods array.
+        $periods = [];
+
+        // Loop through the data.
+        foreach ($records as $record) {
+
+            // Determine if this is an online period or not.
+            $online = self::get_period_online($record->academic_period);
+
+            // Get the academic period id.
+            $pid = $record->academic_period_id;
+
+            // Get the period name matching the course designation.
+            $pname = $record->period_year . ' ' . $record->period_type . $online;
+
+            // Add the key/value pair to the array.
+            $periods[$pid] = $pname;
+        }
+
+        return $periods;
+    }
+
+    /**
+     * Determines if an academic period is an ONLINE period.
+     *
+     * @param @string $period The academic period ID to fetch idata for.
+     * @return @string ' (Online) or an empty string depending if it's online or not.
+     */
+    public static function get_period_online(string $period): string {
+
+        // If the period contains the term "online", desired string, otherwise empty.
+        $online = stripos($period, 'Online') !== false ? ' (Online)' : '';
+
+        // Return it.
+        return $online;
+    }
+
+    /**
      * Builds a standardized idnumber for Moodle course shell.
      *
      * @package enrol_workdaystudent
@@ -4228,9 +4315,23 @@ class workdaystudent {
      */
     public static function build_mshell_idnumber($mshell) {
 
+        $periodname = self::get_current_taught_periods($mshell);
+
+        $periodname = reset($periodname);
+
+        // Remove space between year and term.
+        $pname = preg_replace('/(\d{4}) /', '$1', $periodname);
+
+        // Remove space before (Online) and remove parentheses.
+        $pname = str_replace(' (Online)', 'Online', $pname);
+
+if ($pname == '') {
+ var_dump($periodname);
+ die(); 
+}
+
         // Build out the idnumber.
-        $idnumber = $mshell->period_year .
-            $mshell->period_type .
+        $idnumber = $pname .
             $mshell->course_subject_abbreviation .
             $mshell->course_number . '-' .
             $mshell->universal_id;
