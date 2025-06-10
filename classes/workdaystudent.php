@@ -61,19 +61,38 @@ class workdaystudent {
         // Set this for use later.
         $userid = $mshell->userid;
 
-        // Validate user ID.
+        // Validate and get user ID.
         if (!is_numeric($userid) || $userid <= 0) {
-            var_dump($mshell);
-            throw new invalid_parameter_exception('Invalid user ID provided.');
+            mtrace("We did not get a valid userid: $userid. Try username.");
+            $user = $DB->get_record('user', ['username' => $mshell->username]);
+            $userid = $user ? $user->id : null;
         }
 
-        // Retrieve user preferences related to 'wdspref_'.
-        $sql = "SELECT * FROM {user_preferences}
-            WHERE name LIKE 'wdspref_%'
-                AND userid = ?";
+        // Validate and get user ID.
+        if (!is_numeric($userid) || $userid <= 0) {
+            mtrace("We still did not get a valid userid: $userid. Try email.");
+            $user = $DB->get_record('user', ['email' => $mshell->email]);
+            $userid = $user ? $user->id : null;
+        }
 
-        // Get the data.
-        $preferences = $DB->get_records_sql($sql, [$userid]);
+        // Validate and get user ID.
+        if (!is_numeric($userid) || $userid <= 0) {
+            mtrace("We still did not get a valid userid: $userid. Try idnumber.");
+            $user = $DB->get_record('user', ['idnumber' => $mshell->universal_id]);
+            $userid = $user ? $user->id : null;
+        }
+
+        // Validate and get user ID.
+        if (is_numeric($userid) && $userid > 0) {
+
+            // Retrieve user preferences related to 'wdspref_'.
+            $sql = "SELECT * FROM {user_preferences}
+                WHERE name LIKE 'wdspref_%'
+                    AND userid = ?";
+
+            // Get the data.
+            $preferences = $DB->get_records_sql($sql, [$userid]);
+        }
 
         // Get global settings.
         $s = self::get_settings();
@@ -97,37 +116,40 @@ class workdaystudent {
             }
         }
 
-        // Override defaults with retrieved preferences.
-        foreach ($preferences as $pref) {
-            $shortkey = str_replace('wdspref_', '', $pref->name);
-            if ($shortkey == 'format') {
-                $userprefs->$shortkey = $pref->value;
-            } else {
-                $userprefs->$shortkey = (int) $pref->value;
-            }
-        }
-
-        // Get any unwants we might have that are relvant to this shell.
-        $unwants = self::wds_get_unwants($mshell);
-
-        // Get the unwanted or sepcifivally wanted count.
-        $uwcount = count($unwants);
-
-        // Build out the arrays.
+        // Build out the unwant arrays.
         $userprefs->unwants = [];
         $userprefs->wants = [];
 
-        // Loop through the data.
-        foreach($unwants as $unwant) {
+        if (is_numeric($userid) && $userid > 0) {
 
-            // If the sectionid is unwanted add it to the unwants array.
-            if ($unwant->unwanted === "1") {
-                $userprefs->unwants[] = $unwant->sectionid;
+            // Override defaults with retrieved preferences.
+            foreach ($preferences as $pref) {
+                $shortkey = str_replace('wdspref_', '', $pref->name);
+                if ($shortkey == 'format') {
+                    $userprefs->$shortkey = $pref->value;
+                } else {
+                    $userprefs->$shortkey = (int) $pref->value;
+                }
             }
 
-            // If the sectionid is wanted add it to the wants array.
-            if ($unwant->unwanted === "0") {
-                $userprefs->wants[] = $unwant->sectionid;
+            // Get any unwants we might have that are relvant to this shell.
+            $unwants = self::wds_get_unwants($mshell);
+
+            // Get the unwanted or sepcifivally wanted count.
+            $uwcount = count($unwants);
+
+            // Loop through the data.
+            foreach($unwants as $unwant) {
+
+                // If the sectionid is unwanted add it to the unwants array.
+                if ($unwant->unwanted === "1") {
+                    $userprefs->unwants[] = $unwant->sectionid;
+                }
+
+                // If the sectionid is wanted add it to the wants array.
+                if ($unwant->unwanted === "0") {
+                    $userprefs->wants[] = $unwant->sectionid;
+                }
             }
         }
 
@@ -347,7 +369,6 @@ class workdaystudent {
         return $dateobj;
     }
 
-    // TODO: Possibly deprecated, please remove.
     public static function clean_honors_grade($grade) {
 
         // First get universal ID.
@@ -894,6 +915,7 @@ class workdaystudent {
         // Build the cloned object.
         $as2 = unserialize(serialize($as));
 
+        // TODO: Make sure we only care about this on enrollment and not unenrollment.
         if (!isset($enrollment->Grading_Basis)) {
             mtrace("*** Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
         }
@@ -1204,8 +1226,8 @@ class workdaystudent {
         if (count($times) < 2) {
 
             // If we don't have both start and end times, log the issue and exit.
-            self::dtrace("Invalid time format: $timepart");
-            var_dump($times);
+            self::dtrace("Error! Invalid time format: $schedule");
+            var_dump($section);
             return [];
         }
 
@@ -1978,7 +2000,7 @@ class workdaystudent {
 
         // Set some more parms up.
 
-        // TODO: Add me back! $parms['Institution!Academic_Unit_ID'] = $s->campus;
+        $parms['Institution!Academic_Unit_ID'] = $s->campus;
         $parms['format'] = 'json';
 
         // Build out the settins based on settings, endpoint, and parms.
@@ -2068,8 +2090,6 @@ class workdaystudent {
             // Update the record.
             $success = $DB->update_record($table, $pgm1, false);
 
-            // TODO: RETURN ERRORS.
-
             // Return the new record.
             return $pgm1;
         }
@@ -2109,8 +2129,6 @@ class workdaystudent {
 
         // We may not need to fetch/send this. Revisit.
         $gs = $DB->get_record($table, ['id' => $gsid]);
-
-        // TODO: RETURN ERRORS.
 
         return $gs;
     }
@@ -2727,11 +2745,6 @@ class workdaystudent {
         curl_setopt($ch, CURLOPT_TIMEOUT, 1800);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
-        // Debug this connection.
-        if ($CFG->debugdisplay == 1) {
-            // TODO: curl_setopt($ch, CURLOPT_VERBOSE, true);
-        }
-
         // Get the data.
         $json_response = curl_exec($ch);
 
@@ -3278,8 +3291,8 @@ class workdaystudent {
                     // Build the sql to update their records.
                     $sql = 'UPDATE {enrol_wds_teacher_enroll} e
                                 SET e.status = "unenroll",
-                                    e.prevstatus = :status
-                                    e.role = :role
+                                    e.prevstatus = :status,
+                                    e.role = :role,
                                     e.prevrole = :prevrole
                             WHERE e.section_listing_id = :sectionid
                                 AND e.universal_id = :universalid
@@ -3643,8 +3656,6 @@ class workdaystudent {
         // Make sure we care only setting usernames and emails in lowecase.
         $user->username = \core_text::strtolower($student->username);
         $user->email = \core_text::strtolower($student->email);
-
-        // Idnumber is universal ID. TODO: Deal with school ID as well.
         $user->idnumber = $student->universal_id;
 
         // Make sure we're using their preferred names.
@@ -3763,8 +3774,6 @@ class workdaystudent {
 
         // Compare each field and track any changes.
         $changes = false;
-
-        // TODO: Deal with 'school_id' somehow.
 
         // List the fields to compare.
         $fields_to_check = [
@@ -4341,12 +4350,34 @@ die();
 
         // We might be trying to find or create a parent category.
         if ($s->autoparent === 1) {
+/*
             $parentcat = 0;
 
+            // Build out the parent name.
             $parentname = "$mshell->period_type $mshell->period_year";
-            $parentpathsql = "AND cc.path = CONCAT('/$parentname/', cc.id)";
-            $catnamesql = "AND cc.name = '$parentname'";
 
+            // Search for the parent cat.
+            $parentcat = $DB->get_records('course_categories', ['name' => $parentname]); 
+
+            // Get teh first object in the array of objects.
+            $parentcat = reset($parentcat);
+
+            // We need this.
+            $pcid = $parentcat->id;
+
+            // Set this for the parent path.
+            $parentpathsql = "AND cc.path = CONCAT('/$pcid/', cc.id)";
+
+            $catnamesql = "AND cc.name = '$parentname'";
+*/
+        // We're working in the topmost category.
+        } else if ($s->parentcat == 0) {
+
+            $parentcat = 0;
+            $parentpathsql = "AND cc.path = CONCAT('/', cc.id)";
+            $catnamesql = "AND cc.name = '$mshell->course_subject_abbreviation'";
+
+        // We are building out categories within a subcategory of top.
         } else {
 
             // Set this relative to the configured parent.
@@ -4364,13 +4395,13 @@ die();
             WHERE cc.parent = $parentcat
                 $parentpathsql
                 $catnamesql
-            ORDER BY cc.name ASC";
+            ORDER BY cc.id ASC";
 
         // Set the category object.
         $category = $DB->get_records_sql($ccsql);
 
         if (is_array($category) && !empty($category) && count($category) > 1) {
-            mtrace("  ERROR! Multiple categories for $catname. Deal with it.");
+            mtrace("  Multiple categories for $catname. Deal with it.");
         } else if (is_array($category) && !empty($category)) {
             $category = reset($category);
 
@@ -4396,8 +4427,6 @@ die();
             // Moodle wants an array for the new category.
             $categorydata = [
                 'name' => $catname,
-
-                // TODO: Use the settings value for parent category.
                 'parent' => $parentcat,
                 'description' => $catdesc,
                 'descriptionformat' => FORMAT_HTML,
@@ -5155,13 +5184,13 @@ die();
 
         $othersectionsparms = [
             'uid' => $oldinstructor->universal_id,
-            'periodid' => $section->academic_period_id,
+            'periodid' => $section->Academic_Period_ID,
             'courseid' => $courseid,
-            'clid' => $section->course_listing_id,
+            'clid' => $section->Course_Listing_ID,
             'currentsectionid' => $seclistid
         ];
 
-        $stillteachingothersections = $DB->count_records_sql($othersectionssql, $othersectionsparams) > 0;
+        $stillteachingothersections = $DB->count_records_sql($othersectionssql, $othersectionsparms) > 0;
 
         if ($stillteachingothersections) {
 
@@ -6145,7 +6174,6 @@ class wdscronhelper {
         $processend = microtime(true);
         $processtime = round($processend - $processstart, 2);
 
-        // TODO: DEAL WITH TIMES.
         mtrace("Processing $numgrabbed periods took $processtime seconds.");
     }
 
@@ -6885,12 +6913,7 @@ class enrol_workdaystudent extends enrol_plugin {
             $groupid = isset($group->id) ? $group->id : $newgroupid;
 
             // Enrollment follows.
-
-            // TODO: Go back to just enroll.
-
-            // if ($enrollment->moodle_enrollment_status == 'enroll') {
-            if ($enrollment->moodle_enrollment_status == 'enroll' ||
-                $enrollment->moodle_enrollment_status == 'completed') {
+            if ($enrollment->moodle_enrollment_status == 'enroll') {
 
                 // If we don't have any enrollments for this course, set it to 0.
                 if (!isset($enrollmentcounts[$courseid])) {
