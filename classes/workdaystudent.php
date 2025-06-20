@@ -48,6 +48,30 @@ class workdaystudent {
     }
 
     /**
+     * Resets enrollments prior to pulling from WDS.
+     *
+     * @param @string $sectionlistingid The section listing id.
+     * @return @book $reset
+     */
+    public static function reset_enrollments($sectionlistingid) {
+        global $DB;
+
+        // Build out the parms.
+        $parms = ['slid' => $sectionlistingid];
+
+        // Build out the SQL to update the records.
+        $sql = "UPDATE {enrol_wds_student_enroll}
+             SET registration_status = 'ToBeUpdated',
+             status = 'tobeupdated'
+             WHERE section_listing_id = :slid";
+
+        // Do the nasty.
+        $reset = $DB->execute($sql, $parms);
+
+        return $reset;
+    }
+
+    /**
      * Retrieves faculty preferences for a given user.
      *
      * If personal preferences are missing, return the global settings or fallbacks.
@@ -920,7 +944,7 @@ class workdaystudent {
             mtrace("*** Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
         }
 
-        // Keep the id, section_listing_id, and $universal_id from $as and populate the rest from aenrollment.
+        // Keep the id, section_listing_id, and universal_id from $as and populate the rest from aenrollment.
         $as2->credit_hrs = $enrollment->Units;
         $as2->grading_scheme = isset($enrollment->Student_Grading_Scheme_ID)
                                ? $enrollment->Student_Grading_Scheme_ID
@@ -1339,7 +1363,11 @@ class workdaystudent {
                     // Times differ, set them accordingly and update the record.
                     $existingrecord->start_time = $scheduleitem->start_time;
                     $existingrecord->end_time = $scheduleitem->end_time;
-                    $DB->update_record($table, $existingrecord);
+                    try {
+                        $DB->update_record($table, $existingrecord);
+                    } catch (dml_exception $e) {
+                        mtrace('Database update failed: ' . $e->getMessage());
+                    }
                 }
 
                 // Remove handled items from the existingmap.
@@ -1347,7 +1375,11 @@ class workdaystudent {
             } else {
 
                 // No record for this day. Insert one.
-                $DB->insert_record($table, $scheduleitem);
+                try {
+                    $DB->insert_record($table, $scheduleitem);
+                } catch (dml_exception $e) {
+                    mtrace('Database insert failed: ' . $e->getMessage());
+                }
 
                 // Remove handled items from the existingmap.
                 unset($existingmap[$scheduleitem->day]);
@@ -3982,7 +4014,8 @@ class workdaystudent {
                     ON sec.section_listing_id = tenr.section_listing_id
                 INNER JOIN {enrol_wds_teachers} tea
                     ON tenr.universal_id = tea.universal_id
-            WHERE sec.controls_grading = 1
+            WHERE per.enabled = 1
+                AND sec.controls_grading = 1
                 AND (
                     sec.wd_status = 'Open' OR
                     sec.wd_status = 'Closed' OR
@@ -4014,6 +4047,7 @@ class workdaystudent {
             '{period_type}' => $mshell->period_type,
             '{course_subject_abbreviation}' => $mshell->course_subject_abbreviation,
             '{course_number}' => $mshell->course_number,
+            '{section_number}' => $mshell->sections,
             '{course_type}' => $mshell->class_type,
             '{firstname}' => isset($mshell->preferred_firstname)
                 ? $mshell->preferred_firstname
@@ -4047,8 +4081,10 @@ class workdaystudent {
             }
         }
 
-        // Return the formatted shell name.
-        return trim($shellname);
+        // Trim the formatted shell name.
+        $shellname = trim($shellname);
+
+        return $shellname;
     }
 
     public static function wds_create_moodle_groups($course, $mshell) {
@@ -4311,6 +4347,7 @@ class workdaystudent {
      * @return @string Formatted idnumber for the course
      */
     public static function build_mshell_idnumber($mshell) {
+        $s = self::get_settings();
 
         $periodname = self::get_current_taught_periods($mshell);
 
@@ -4322,18 +4359,31 @@ class workdaystudent {
         // Remove space before (Online) and remove parentheses.
         $pname = str_replace(' (Online)', 'Online', $pname);
 
-if ($pname == '') {
-echo"\n\nPeriodName: ";
-var_dump($periodname);
-echo"\n\nMshell: ";
-var_dump($mshell);
-die();
-}
+        // Initialize idnumbersectionpart.
+        $idnumbersectionpart = '';
+
+        // Check if course grouping is disabled.
+        if (isset($s->course_grouping) && $s->course_grouping == 0) {
+
+            // Check if sections are set and not empty.
+            if (isset($mshell->sections) && !empty($mshell->sections)) {
+
+                // Split sections by comma. This should never happen if grouping is disabled.
+                $sectionparts = explode(',', $mshell->sections);
+
+                // Take the first section number.
+                $sectionnumber = $sectionparts[0];
+
+                // Prepare the section part for idnumber.
+                $idnumbersectionpart = '_' . $sectionnumber;
+            }
+        }
 
         // Build out the idnumber.
         $idnumber = $pname .
             $mshell->course_subject_abbreviation .
-            $mshell->course_number . '-' .
+            $mshell->course_number .
+            $idnumbersectionpart . '-' .
             $mshell->universal_id;
 
         return $idnumber;
@@ -5288,7 +5338,7 @@ die();
 
             // Get the section details from Workday.
             $s = workdaystudent::get_settings();
-            $parms = ['Course_Section_Definition_ID' => $section->course_section_definition_id];
+            $parms = ['Section_Listing_ID' => $section->section_listing_id];
             $updatedsections = workdaystudent::get_sections($s, $parms);
 
             if (empty($updatedsections)) {
@@ -5745,50 +5795,54 @@ class wdscronhelper {
                 // Insert or update this section.
                 $sec = workdaystudent::insert_update_section($section);
 
-                // If we have section components, add / update the schedule data.
-                if (isset($section->Meeting_Patterns) || isset($section->Section_Components)) {
+                // Only add section metadata for non combo courses.
+                if (isset($section->Class_Type) && $section->Class_Type != 'Combination') {
 
-                    // Because some people cannot consistently set shit up.
-                    if (isset($section->Meeting_Patterns)) {
+                    // If we have section components, add / update the schedule data.
+                    if (isset($section->Meeting_Patterns) || isset($section->Section_Components)) {
 
-                        // Set this for easier use.
-                        $mps = $section->Meeting_Patterns;
-                    } else {
+                        // Because some people cannot consistently set shit up.
+                        if (isset($section->Meeting_Patterns)) {
 
-                        // Set this for easier use.
-                        $mps = $section->Section_Components;
+                            // Set this for easier use.
+                            $mps = $section->Meeting_Patterns;
+                        } else {
+
+                            // Set this for easier use.
+                            $mps = $section->Section_Components;
+                        }
+
+                        // Check to see if we have more than one meeting patterns.
+                        if (str_contains($mps, ';')) {
+
+                            // Split into two (or more) meeting patterns.
+                            $mpsa = array_map('trim', explode(';', $mps));
+
+                        // We do not have more than one meeting pattern.
+                        } else {
+
+                            // Return the original string as a single-item array.
+                            $mpsa = [trim($mps)];
+                        }
+
+                        // Set up an empty array for this.
+                        $schedules = [];
+
+                        // Loop through the meeting patterns array.
+                        foreach ($mpsa as $mp) {
+
+                            // Process the section schedule for this meeting pattern.
+                            $schedule = workdaystudent::process_section_schedule($section, $mp);
+
+                            // Merge this shit together.
+                            $schedules = array_merge($schedules, $schedule);
+                        }
+
+                        // Add these meeting patterns to the DB.
+                        $sectionschedule = workdaystudent::wds_store_schedules($section, $schedules);
                     }
 
-                    // Check to see if we have more than one meeting patterns.
-                    if (str_contains($mps, ';')) {
-
-                        // Split into two (or more) meeting patterns.
-                        $mpsa = array_map('trim', explode(';', $mps));
-
-                    // We do not have more than one meeting pattern.
-                    } else {
-
-                        // Return the original string as a single-item array.
-                        $mpsa = [trim($mps)];
-                    }
-
-                    // Set up an empty array for this.
-                    $schedules = [];
-
-                    // Loop through the meeting patterns array.
-                    foreach ($mpsa as $mp) {
-
-                        // Process the section schedule for this meeting pattern.
-                        $schedule = workdaystudent::process_section_schedule($section, $mp);
-
-                        // Merge this shit together.
-                        $schedules = array_merge($schedules, $schedule);
-                    }
-
-                    // Add these meeting patterns to the DB.
-                    $sectionschedule = workdaystudent::wds_store_schedules($section, $schedules);
                 }
-
                 // If we do not have an instructor, let us know.
                 if (!isset($section->Instructor_Info)) {
                     workdaystudent::dtrace("    - No instructors in " .
