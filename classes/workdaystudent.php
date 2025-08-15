@@ -331,9 +331,11 @@ class workdaystudent {
             // Loop through the student's registrations.
             foreach ($guild->Student_Course_Registrations_group as $registration) {
 
+                $uid = isset($guild->Universal_Id) ? $guild->Universal_Id : $guild->SFPR_UID;
+
                 // Build the parms for this update.
                 $parms = [
-                    'universal_id' => $guild->SFPR_UID,
+                    'universal_id' => $uid,
                     'section_listing_id' => $registration->Section_Listing_ID
                 ];
 
