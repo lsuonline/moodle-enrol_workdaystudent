@@ -313,6 +313,42 @@ class workdaystudent {
     }
 
     /**
+     * Sets GUILD flag in enrollment table.
+     *
+     * @package enrol_workdaystudent
+     * @param @array of @objects $guilds Guilds array of objects containing guild enrollment
+     * @return @void
+     */
+    public static function set_guild_data($guilds):void {
+        global $DB;
+
+        // Loop through the guilds.
+        foreach ($guilds as $guild) {
+
+            // Get the UID.
+            $guild = self::get_uid_sfpr($guild);
+
+            // Loop through the student's registrations.
+            foreach ($guild->Student_Course_Registrations_group as $registration) {
+
+                // Build the parms for this update.
+                $parms = [
+                    'universal_id' => $guild->SFPR_UID,
+                    'section_listing_id' => $registration->Section_Listing_ID
+                ];
+
+                $sql = 'UPDATE {enrol_wds_student_enroll}
+                    SET guild = 1
+                    WHERE section_listing_id = :section_listing_id
+                        AND universal_id = :universal_id';
+
+                // Do the nasty.
+                $DB->execute($sql, $parms);
+            }
+        }
+    }
+
+    /**
      * Retrieves period dates from Workday.
      *
      * @package enrol_workdaystudent
@@ -4095,25 +4131,50 @@ class workdaystudent {
         // Get the sections.
         $sections = explode(",", $mshell->sections);
 
+        // Array for all group IDs we keep/create.
+        $groupids = [];
+
         foreach ($sections as $section) {
 
             // Build out the groupname.
             $groupname = "$mshell->course_subject_abbreviation $mshell->course_number $section";
 
-            // Build out an array of groupids.
-            $groupids = [];
+            // Find all matching groups and count members.
+            $sql = "SELECT g.id,
+                COUNT(gm.userid) AS membercount
+                FROM {groups} g
+                    LEFT JOIN {groups_members} gm ON gm.groupid = g.id
+                WHERE g.courseid = :courseid
+                    AND g.name = :name
+                GROUP BY g.id
+               ORDER BY membercount DESC, g.id ASC";
 
-            // Check if the group already exists in the course.
-            $existinggroup = $DB->get_record('groups',
-                ['courseid' => $course->id, 'name' => $groupname], 'id');
+            // Build out the cheese.
+            $parms = ['courseid' => $course->id, 'name' => $groupname];
 
-            if (isset($existinggroup->id)) {
-                self::dtrace("  Group '$groupname' already exists in $course->fullname. Skipping.");
+            // Get the groups.
+            $matchinggroups = $DB->get_records_sql($sql, $parms);
 
-                // Add the existing groupid to the array.
-                $groupids[] = $existinggroup->id;
+            if (!empty($matchinggroups)) {
 
-                continue;
+            // Keep the first one (most members).
+                $keep = reset($matchinggroups);
+                $groupids[] = $keep->id;
+
+                self::dtrace("  Group '$groupname' already exists in $course->fullname with {$keep->membercount} members. Keeping this one.");
+
+                // Remove the "keep" group from array.
+                array_shift($matchinggroups);
+
+                // Delete all other duplicates.
+                foreach ($matchinggroups as $dupe) {
+
+                    self::dtrace("    Deleting duplicate group ID {$dupe->id} ({$dupe->membercount} members).");
+
+                    // Delete the group.
+                    groups_delete_group($dupe->id);
+                }
+
             } else {
 
                 // Create the group and return the groupid.
@@ -4191,9 +4252,30 @@ class workdaystudent {
         $course->showgrades = 1;
         $course->lang = $CFG->lang;
 
-        $exists = $DB->get_record('course', ['shortname' => $course->shortname]);
+        // Check if either the shortname OR idnumber exists and deal.
+        $snexists = $DB->get_record('course', ['shortname' => $course->shortname]);
+        $idexists = $DB->get_record('course', ['idnumber' => $course->idnumber]);
 
-        // If it exists create some groups.
+        // If the shortname exists.
+        if (isset($snexists->id)) {
+
+            // Set it.
+            $exists = $snexists;
+
+        // If the idnumber exists.
+        } else if (isset($idexists->id)) {
+
+            // Set it.
+            $exists = $idexists;
+
+        // We're dealing with a new course.
+        } else {
+
+            // Build a fake object to not error out later.
+            $exists = new stdClass();
+        }
+
+        // If the course exists create some groups.
         if (isset($exists->id)) {
             self::dtrace("  $course->fullname already exists. Updating idb idnumber.");
 
@@ -4201,7 +4283,7 @@ class workdaystudent {
             $groups = self::wds_create_moodle_groups($exists, $mshell);
         }
 
-        // If it exists and the idnumbers match, update the interstitial record.
+        // If the exists and the idnumbers match, update the interstitial record.
         if (isset($exists->id) && $exists->idnumber == $course->idnumber) {
             $sectiontable = 'enrol_wds_sections';
             $sectionids = explode(",", $mshell->sectionids);
@@ -4221,9 +4303,10 @@ class workdaystudent {
                 self::dtrace("   Course idumber / moodle_status updated in $sectiontable for id: $sectionid.");
             }
 
+            // Everything is awesome, return the existing course.
             return $exists;
 
-        // This is not right!
+        // This is not right! The course exists but fullname and idnumber do not match what they're supposed to be.
         } else if (isset($exists->id) && $exists->idnumber != $course->idnumber) {
             mtrace(" Error! We should never have a matching " .
                 "shortname with a mismatched idnumber!");
@@ -5266,6 +5349,14 @@ class workdaystudent {
             return true;
         }
 
+        // Update enrollment record.
+        workdaystudent::insert_update_teacher_enrollment(
+            $seclistid,
+            $oldinstructor->universal_id,
+            'teacher',
+            'unenrolled'
+        );
+
         if (!$hasmaterials) {
 
             // Course has no materials, unenroll instructor and delete course.
@@ -5303,14 +5394,6 @@ class workdaystudent {
 
             workdaystudent::dtrace("Kept course {$courseid} with materials during PMI change. Course idnumber cleared.");
         }
-
-        // Update enrollment record.
-        workdaystudent::insert_update_teacher_enrollment(
-            $seclistid,
-            $oldinstructor->universal_id,
-            'teacher',
-            'unenrolled'
-        );
 
         return true;
     }
@@ -6511,6 +6594,44 @@ class wdscronhelper {
             // Bulk enrollment.
             $wdsbulk = enrol_workdaystudent::wds_bulk_faculty_enrollments($enrollments);
         }
+    }
+
+    public static function cronguild():void {
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Set the start time.
+        $starttime = microtime(true);
+
+        mtrace("Fetching GUILD data.");
+
+        // Get the courses.
+        $guilds = workdaystudent::get_guild($s);
+
+        // Set the end fetch time.
+        $fetchtime = microtime(true);
+
+        $elapsedfetch = round($fetchtime - $starttime, 2);
+
+        mtrace("Fetched GUILD data in $elapsedfetch seconds.");
+
+        mtrace("Setting GUILD data.");
+
+        // Set the data.
+        $doit = workdaystudent::set_guild_data($guilds);
+
+        // Set the finishtime.
+        $finishtime = microtime(true);
+
+        // Calculate the elapsed time to set the data.
+        $elapsedtime = round($finishtime - $fetchtime, 2);
+
+        // Calculate the total elapsed time.
+        $telapsedtime = round($finishtime - $starttime, 2);
+
+        mtrace("Set GUILD data in $elapsedtime seconds.");
+        mtrace("GUILD data fetch and set in $telapsedtime seconds.");
     }
 
 // Class end.

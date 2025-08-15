@@ -100,6 +100,9 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls();
 
+        // Fetch and set guild data.
+        $cronguild = wdscronhelper::cronguild();
+
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);
 
@@ -216,6 +219,9 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
 
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls();
+
+        // Fetch and set guild data.
+        $cronguild = wdscronhelper::cronguild();
 
         $endtime = microtime(true);
         $elapsedtime = round($endtime - $starttime, 2);

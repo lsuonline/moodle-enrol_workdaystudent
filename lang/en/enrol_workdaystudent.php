@@ -155,6 +155,7 @@ $string['wds:access_error'] = 'You do not have access to do this.';
 
 // Add / Drop tracking strings.
 $string['enrollmenttracker'] = 'Enrollment Tracker';
+$string['workdaystudent:viewenrollmenttracker'] = 'Enrollment Tracker';
 $string['enrollmentdata'] = 'Workday Student Enrollment Data';
 $string['studentname'] = 'Student Name';
 $string['adddatetime'] = 'Add Date/Time';
