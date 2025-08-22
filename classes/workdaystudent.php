@@ -190,15 +190,23 @@ class workdaystudent {
     public static function wds_get_unwants($mshell) {
         global $DB;
 
+        $parms = [
+            'userid' => $mshell->userid,
+            'sectionids' => $mshell->sectionids
+        ];
+
         // Build the SQL.
         $usql = "SELECT *
             FROM {block_wdsprefs_unwants}
-             WHERE userid = $mshell->userid
-                 AND sectionid IN ($mshell->sectionids)";
+             WHERE userid = :userid
+                 AND sectionid IN (:sectionids)";
 
-        $unwants = $DB->get_records_sql($usql);
-
-        return $unwants;
+        if (is_numeric($mshell->userid)) {
+            $unwants = $DB->get_records_sql($usql, $parms);
+            return $unwants;
+        } else {
+            return [];
+        }
     }
 
     /**
@@ -3031,10 +3039,10 @@ class workdaystudent {
         $stu2->school_id = $lid;
         $stu2->firstname = $student->First_Name;
         $stu2->preferred_firstname = isset($student->Preferred_First_Name) ?
-            $student->Preferred_First_Name : null;
+            $student->Preferred_First_Name : $student->First_Name;
         $stu2->lastname = $student->Last_Name;
         $stu2->preferred_lastname = isset($student->Preferred_Last_Name) ?
-            $student->Preferred_Last_Name : null;
+            $student->Preferred_Last_Name : $student->Last_Name;
         $stu2->middlename = isset($student->Middle_Name) ?
             $student->Middle_Name : null;
 
@@ -3086,10 +3094,10 @@ class workdaystudent {
         $data->userid = null;
         $data->firstname = $student->First_Name;
         $data->preferred_firstname = isset($student->Preferred_First_Name) ?
-            $student->Preferred_First_Name : null;
+            $student->Preferred_First_Name : $student->First_Name;
         $data->lastname = $student->Last_Name;
         $data->preferred_lastname = isset($student->Preferred_Last_Name) ?
-            $student->Preferred_Last_Name : null;
+            $student->Preferred_Last_Name : $student->Last_Name;
         $data->middlename = isset($student->Middle_Name) ?
             $student->Middle_Name : null;
         $data->lastupdate = time();
@@ -3577,8 +3585,8 @@ class workdaystudent {
             SET u.idnumber = stu.universal_id,
                 u.email = stu.email,
                 u.username = stu.username,
-                u.firstname = stu.preferred_firstname,
-                u.lastname = stu.preferred_lastname,
+                u.firstname = COALESCE(stu.preferred_firstname, stu.firstname),
+                u.lastname = COALESCE(stu.preferred_lastname, stu.lastname),
                 u.middlename = stu.middlename,
                 u.timemodified = stu.lastupdate,
                 u.auth = '$auth'
@@ -3588,8 +3596,8 @@ class workdaystudent {
                 AND (stu.universal_id != u.idnumber
                     OR stu.email != u.email
                     OR stu.username != u.username
-                    OR stu.preferred_firstname != u.firstname
-                    OR stu.preferred_lastname != u.lastname
+                    OR COALESCE(stu.preferred_firstname, stu.firstname) != u.firstname
+                    OR COALESCE(stu.preferred_lastname, stu.lastname) != u.lastname
                     OR stu.middlename != u.middlename
                     OR u.auth != '$auth')";
 
@@ -3652,8 +3660,8 @@ class workdaystudent {
                    AND (stu.universal_id != u.idnumber
                        OR stu.email != u.email
                        OR stu.username != u.username
-                       OR stu.preferred_firstname != u.firstname
-                       OR stu.preferred_lastname != u.lastname
+                       OR COALESCE(stu.preferred_firstname, stu.firstname) != u.firstname
+                       OR COALESCE(stu.preferred_lastname, stu.lastname) != u.lastname
                        OR stu.middlename != u.middlename
                        OR u.auth != '$auth')";
 
@@ -4919,8 +4927,10 @@ class workdaystudent {
 
                 // Build out the reprocessectionsql.
                 $reprocesssection = ' AND sec.course_section_definition_id = :courseid';
-
             }
+//        } else {
+//            $reprocesssection = ' AND tenr.role = \'primary\'
+//                AND sec.controls_grading = 1';
         }
 
         $sql = "SELECT stuenr.id AS enrollment_id,
@@ -4934,7 +4944,7 @@ class workdaystudent {
                 sec.idnumber AS section_idnumber,
                 stuenr.status AS moodle_enrollment_status,
                 stuenr.prevstatus AS moodle_prev_status,
-                stuenr.registered_date AS wds_regdate,
+                IF(stuenr.registered_date = 0, stuenr.drop_date, stuenr.registered_date) AS wds_regdate,
                 tenr.universal_id AS primary_id
             FROM {enrol_wds_sections} sec
                 INNER JOIN {enrol_wds_courses} cou
@@ -4946,16 +4956,17 @@ class workdaystudent {
                     ON sec.section_listing_id = stuenr.section_listing_id
                 INNER JOIN {enrol_wds_teacher_enroll} tenr
                     ON tenr.section_listing_id = sec.section_listing_id
-                    AND tenr.role = 'primary'
                 LEFT JOIN {enrol_wds_students} stu
                     ON stu.universal_id = stuenr.universal_id
             WHERE sec.academic_period_id = :apid
                 AND sec.idnumber IS NOT NULL
-                AND sec.controls_grading = 1
                 AND stuenr.status IN ('enroll', 'unenroll')
                 $reprocesssection
             GROUP BY stuenr.id
-            ORDER BY sec.idnumber ASC, stuenr.registered_date ASC, stuenr.lastupdate ASC";
+            ORDER BY sec.idnumber ASC,
+                sec.controls_grading ASC,
+                stuenr.registered_date ASC,
+                stuenr.lastupdate ASC";
 
             $enrollments = $DB->get_records_sql($sql, $parms);
 
@@ -5397,6 +5408,7 @@ class workdaystudent {
             workdaystudent::dtrace("Kept course {$courseid} with materials during PMI change. Course idnumber cleared.");
         }
 
+        // TODO: Set the students for the courses that were unenrolled to 'tobeupdated' so they can be processed properly JIC.
         return true;
     }
 
@@ -6306,7 +6318,7 @@ class wdscronhelper {
             $periodelapsed = round($periodend - $periodstart, 2);
 
             // Log how long it took to process and how many enrollments were processed.
-            mtrace("We took $periodelapsed seconds to process " .
+            mtrace("\nWe took $periodelapsed seconds to process " .
                 "$enrollmentcount enrollments in $period->academic_period_id.");
         }
 
@@ -6996,7 +7008,8 @@ class enrol_workdaystudent extends enrol_plugin {
             $enrolls = $enrollmentcounts[$coursed] ?? 0;
 
             if (isset($unenrollstucount)) {
-                $unenrolls = $unenrollmentcounts[$coursed] + $unenrollstucount[$courseid] ?? 0;
+                $unenrolls = ($unenrollmentcounts[$coursed] ?? 0) + ($unenrollstucount[$courseid] ?? 0);
+
             } else {
                 $unenrolls = $unenrollmentcounts[$coursed] ?? 0;
             }
