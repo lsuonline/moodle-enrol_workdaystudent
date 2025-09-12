@@ -165,3 +165,10 @@ $string['enrolled'] = 'Enrolled';
 $string['section_number'] = 'Section Number';
 $string['noenrollmentdata'] = 'No enrollment data available for this course.';
 $string['unknownuser'] = 'Unknown User';
+
+// Unenroll extras.
+$string['unenrollcandidates'] = 'Unenroll Abandoned';
+$string['unenrollall'] = 'Unenroll all abandoned users';
+$string['unenrollsuccess'] = 'All abandoned users have been unenrolled.';
+$string['nounenrollcandidates'] = 'No abandoned users to unenroll.';
+$string['workdaystudent:unenroll'] = 'Unenroll Abandoned';

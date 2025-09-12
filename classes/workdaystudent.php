@@ -62,7 +62,8 @@ class workdaystudent {
         // Build out the SQL to update the records.
         $sql = "UPDATE {enrol_wds_student_enroll}
              SET registration_status = 'ToBeUpdated',
-             status = 'tobeupdated'
+             status = 'tobeupdated',
+             lastupdate = 0
              WHERE section_listing_id = :slid";
 
         // Do the nasty.
@@ -586,7 +587,7 @@ class workdaystudent {
 
         // Compare the objects.
         if (get_object_vars($ap) === get_object_vars($ap2)) {
-            self::dtrace("   - Academic period matched, skipping.");
+            // self::dtrace("   - Academic period matched, skipping.");
             return $ap;
         } else {
 
@@ -597,7 +598,7 @@ class workdaystudent {
             $success = $DB->update_record($table, $ap2, false);
 
             if ($success) {
-                self::dtrace("   - Academic period $ap->academic_period_id has been updated from the endpoint.");
+                // self::dtrace("   - Academic period $ap->academic_period_id has been updated from the endpoint.");
 
                 // Return the updated object.
                 return $ap2;
@@ -670,7 +671,7 @@ class workdaystudent {
         $pd->date = strtotime($pdate->Date);
 
         $ap = $DB->insert_record($table, $pd);
-        self::dtrace("    - Inserted $pd->academic_level $pd->date_type for $pd->academic_period_id.");
+        // self::dtrace("    - Inserted $pd->academic_level $pd->date_type for $pd->academic_period_id.");
 
         return $ap;
     }
@@ -693,10 +694,10 @@ class workdaystudent {
 
         if (get_object_vars($pd) !== get_object_vars($pd2)) {
             $ap = $DB->update_record($table, $pd2, false);
-            self::dtrace("    - Updated $pd2->academic_level $pd2->date_type for $pd2->academic_period_id.");
+            // self::dtrace("    - Updated $pd2->academic_level $pd2->date_type for $pd2->academic_period_id.");
             return $pd2;
         } else {
-            self::dtrace("    - $pd2->academic_level $pd2->date_type records matched perfectly, skipping.");
+            // self::dtrace("    - $pd2->academic_level $pd2->date_type records matched perfectly, skipping.");
             return $pd2;
         }
     }
@@ -755,7 +756,7 @@ class workdaystudent {
 
         // Compare the objects.
         if (get_object_vars($as) === get_object_vars($as2)) {
-            self::dtrace("Section $section->Section_Listing_ID matched stored value, skipping.");
+            // self::dtrace("Section $section->Section_Listing_ID matched stored value, skipping.");
 
             return $as;
         } else {
@@ -830,7 +831,7 @@ class workdaystudent {
 
         // Compare the objects.
         if (get_object_vars($ac) === get_object_vars($ac2)) {
-            self::dtrace("    Course $ac->course_listing_id matched $course->Course_Listing_ID, skipping.");
+            // self::dtrace("    Course $ac->course_listing_id matched $course->Course_Listing_ID, skipping.");
             return $ac;
         } else {
 
@@ -928,7 +929,7 @@ class workdaystudent {
             $as->registered_date != $enrollment->Registered_Date ||
             $as->registration_status != $enrollment->Registration_Status)
         ) {
-            self::dtrace("Found interstitial enrollment record that requires an update with id: $as->id.");
+            // self::dtrace("Found interstitial enrollment record that requires an update with id: $as->id.");
             $as = self::update_student_enrollment($s, $enrollment, $unenrolls, $enrolls, $donothings, $as);
 
         } else if (isset($as->id) && !isset($enrollment->Registered_Date) && (
@@ -937,7 +938,7 @@ class workdaystudent {
             $as->credit_hrs != $enrollment->Units ||
             $as->registration_status != $enrollment->Registration_Status
         )) {
-            self::dtrace("Found interstitial enrollment record that requires an update with id: $as->id.");
+            // self::dtrace("Found interstitial enrollment record that requires an update with id: $as->id.");
             $as = self::update_student_enrollment($s, $enrollment, $unenrolls, $enrolls, $donothings, $as);
 
         // It does not exist, create it.
@@ -947,7 +948,7 @@ class workdaystudent {
 
         // It exists and matches, log it.
         } else {
-            self::dtrace("Found interstitial enrollment record with id: $as->id. No update required.");
+            // self::dtrace("Found interstitial enrollment record with id: $as->id. No update required.");
         }
 
         return $as;
@@ -978,17 +979,20 @@ class workdaystudent {
         $dropdate = isset($enrollment->Drop_Date)
                     ? self::dateconv($enrollment->Drop_Date)
                     : $wdate;
-        $lastupdate = isset($enrollment->Last_Functionally_Updated)
-                      ? self::dateconv($enrollment->Last_Functionally_Updated)
-                      : time();
+        $lastupdate = isset($enrollment->Created_Moment)
+                      ? self::dateconv($enrollment->Created_Moment)
+                      : 0;
+
+        // Leave GUILD data alone.
+        unset($as->guild);
 
         // Build the cloned object.
         $as2 = unserialize(serialize($as));
 
         // TODO: Make sure we only care about this on enrollment and not unenrollment.
-        if (!isset($enrollment->Grading_Basis)) {
-            mtrace("*** Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
-        }
+        // if (!isset($enrollment->Grading_Basis)) {
+        //     mtrace("*** Grading basis not set for course: $enrollment->Section_Listing_ID and student: $enrollment->Universal_Id.");
+        // }
 
         // Keep the id, section_listing_id, and universal_id from $as and populate the rest from aenrollment.
         $as2->credit_hrs = $enrollment->Units;
@@ -1000,6 +1004,9 @@ class workdaystudent {
         $as2->registered_date = $regdate;
         $as2->drop_date = $dropdate;
         $as2->lastupdate = $lastupdate;
+
+        // This is grabbed as a string, convert.
+        $as->drop_date = (int) $as->drop_date;
 
         // Status gets complicated and is based on Registration Status.
         if (in_array($enrollment->Registration_Status, $unenrolls) && $as->status != 'unenrolled') {
@@ -1037,7 +1044,7 @@ class workdaystudent {
             }
 
             if (isset($success) && $success == true) {
-                self::dtrace("Enrollment for $as2->universal_id in $as2->section_listing_id has been updated from the endpoint.");
+                // self::dtrace("Enrollment for $as2->universal_id in $as2->section_listing_id has been updated from the endpoint.");
 
                 // Return the updated object.
                 return $as2;
@@ -1080,9 +1087,9 @@ class workdaystudent {
         $dropdate = isset($enrollment->Drop_Date)
                     ? self::dateconv($enrollment->Drop_Date)
                     : $wdate;
-        $lastupdate = isset($enrollment->Last_Functionally_Updated)
-                      ? self::dateconv($enrollment->Last_Functionally_Updated)
-                      : time();
+        $lastupdate = isset($enrollment->Created_Moment)
+                      ? self::dateconv($enrollment->Created_Moment)
+                      : 0;
 
         // Set the table.
         $table = 'enrol_wds_student_enroll';
@@ -1297,7 +1304,7 @@ class workdaystudent {
 
             // If we don't have both start and end times, log the issue and exit.
             self::dtrace("Error! Invalid time format: $schedule");
-            var_dump($section);
+            // var_dump($section);
             return [];
         }
 
@@ -1561,7 +1568,7 @@ class workdaystudent {
 
         // Compare the objects.
         if (get_object_vars($au) === get_object_vars($au2)) {
-            self::dtrace(" - Academic unit $au->academic_unit_id matched $unit->Academic_Unit_ID, skipping.");
+            // self::dtrace(" - Academic unit $au->academic_unit_id matched $unit->Academic_Unit_ID, skipping.");
             return $au;
         } else {
 
@@ -2158,7 +2165,7 @@ class workdaystudent {
 
         // If the objects match.
         if (get_object_vars($pgm) === get_object_vars($pgm1)) {
-            self::dtrace("  - Program object match, no update necessary.");
+            // self::dtrace("  - Program object match, no update necessary.");
 
             // Return the original program.
             return $pgm;
@@ -2253,7 +2260,7 @@ class workdaystudent {
 
             // Get the grading schemas.
             foreach ($gradingschemes as $gradingschema) {
-                self::dtrace("    Processing $gradingschema->Student_Grading_Scheme_ID.");
+                // self::dtrace("    Processing $gradingschema->Student_Grading_Scheme_ID.");
 
                 // Get the grading schemes from each Grades_group.
                 foreach ($gradingschema->Grades_group as $gradingscheme) {
@@ -2274,7 +2281,7 @@ class workdaystudent {
 
                     // Increment the counter.
                     $counter++;
-                    self::dtrace("      -($counter) Processing $gradingscheme->Grading_Basis - $gradingscheme->Student_Grade_Display.");
+                    // self::dtrace("      -($counter) Processing $gradingscheme->Grading_Basis - $gradingscheme->Student_Grade_Display.");
 
                     // Insert each grading scheme and add it to the $gs array.
                     $gs = array_merge($gs, self::insert_grading_scheme($gradingscheme));
@@ -2760,7 +2767,7 @@ class workdaystudent {
             && $sport->name == $team->Athletic_Team) {
 
             // Log we did not update anything.
-            self::dtrace("  - Sport code matches team name, skipping.");
+            // self::dtrace("  - Sport code matches team name, skipping.");
 
             return $sport;
         } else {
@@ -3048,7 +3055,7 @@ class workdaystudent {
 
         // If the objects match.
         if (get_object_vars($stu1) === get_object_vars($stu2)) {
-            self::dtrace("  - Student objects match, no update necessary.");
+            // self::dtrace("  - Student objects match, no update necessary.");
 
             // Return the original student.
             return $stu;
@@ -3267,7 +3274,7 @@ class workdaystudent {
 
         // If the objects match.
         if (get_object_vars($tea1) === get_object_vars($tea2)) {
-            self::dtrace(" User objects match, no update necessary.");
+            // self::dtrace(" User objects match, no update necessary.");
 
             // Return the original teacher.
             return false;
@@ -3441,8 +3448,8 @@ class workdaystudent {
 
                 // Compare the objects.
                 if (get_object_vars($data) === get_object_vars($enr)) {
-                    self::dtrace(" - Enrollment entry: " .
-                        "$data->id matches exactly, skipping.");
+                    // self::dtrace(" - Enrollment entry: " .
+                    //    "$data->id matches exactly, skipping.");
 
                     return $enr;
                 } else {
@@ -3912,8 +3919,8 @@ class workdaystudent {
                 return $updated;
             }
         } else {
-            self::dtrace("No changes were found in the " .
-                "above user objects (case insensitive).");
+            // self::dtrace("No changes were found in the " .
+            //    "above user objects (case insensitive).");
         }
 
         return false;
@@ -4171,7 +4178,7 @@ class workdaystudent {
                 $keep = reset($matchinggroups);
                 $groupids[] = $keep->id;
 
-                self::dtrace("  Group '$groupname' already exists in $course->fullname with {$keep->membercount} members. Keeping this one.");
+                // self::dtrace("  Group '$groupname' already exists in $course->fullname with {$keep->membercount} members. Keeping this one.");
 
                 // Remove the "keep" group from array.
                 array_shift($matchinggroups);
@@ -4293,35 +4300,46 @@ class workdaystudent {
             $groups = self::wds_create_moodle_groups($exists, $mshell);
         }
 
-        // If the exists and the idnumbers match, update the interstitial record.
-        if (isset($exists->id) && $exists->idnumber == $course->idnumber) {
+        // If the exists and the idnumbers or shortnames match, update the interstitial record.
+        if (isset($exists->id) && ($exists->idnumber == $course->idnumber || $exists->shortname == $course->shortname))  {
             $sectiontable = 'enrol_wds_sections';
             $sectionids = explode(",", $mshell->sectionids);
 
             // Loop through the section ids.
             foreach ($sectionids as $sectionid) {
 
-                // Build the parms.
-                $parms = [
+                // Build the idb parms.
+                $idbparms = [
                     'id' => $sectionid,
                     'idnumber' => $course->idnumber,
                     'moodle_status' => $exists->id
                 ];
 
                 // Update the record.
-                $updated = $DB->update_record($sectiontable, $parms);
+                $idbupdated = $DB->update_record($sectiontable, $idbparms);
                 self::dtrace("   Course idumber / moodle_status updated in $sectiontable for id: $sectionid.");
             }
+
+            $coursetable = 'course';
+
+            // Build the idb parms.
+            $cparms = [
+                'id' => $exists->id,
+                'idnumber' => $course->idnumber
+            ];
+
+            // Update the record.
+            $cupdated = $DB->update_record($coursetable, $cparms);
 
             // Everything is awesome, return the existing course.
             return $exists;
 
-        // This is not right! The course exists but fullname and idnumber do not match what they're supposed to be.
+        // We should never be here! The course exists but shortname and idnumber still do not match what they're supposed to be.
         } else if (isset($exists->id) && $exists->idnumber != $course->idnumber) {
             mtrace(" Error! We should never have a matching " .
                 "shortname with a mismatched idnumber!");
-            mtrace(" - Error! Course Shell: $exists->idnumber, " .
-                "Interstitial record: $course->idnumber.");
+            mtrace(" - Error! Course Shell id: $exists->id, " .
+                "Interstitial record idnumber: $course->idnumber.");
             return false;
         }
 
@@ -4928,9 +4946,6 @@ class workdaystudent {
                 // Build out the reprocessectionsql.
                 $reprocesssection = ' AND sec.course_section_definition_id = :courseid';
             }
-//        } else {
-//            $reprocesssection = ' AND tenr.role = \'primary\'
-//                AND sec.controls_grading = 1';
         }
 
         $sql = "SELECT stuenr.id AS enrollment_id,
@@ -4965,6 +4980,7 @@ class workdaystudent {
             GROUP BY stuenr.id
             ORDER BY sec.idnumber ASC,
                 sec.controls_grading ASC,
+                stuenr.status DESC,
                 stuenr.registered_date ASC,
                 stuenr.lastupdate ASC";
 
@@ -5969,7 +5985,7 @@ class wdscronhelper {
 
                         // If we have a primary instructor.
                         if (!is_null($pmi)) {
-                            workdaystudent::dtrace("    Primary instructor $pmi found!");
+                            workdaystudent::dtrace("    Primary instructor $pmi found for $secid.");
 
                             // Set the role to primary if the teacher matches the pmi.
                             $role = $tid == $pmi ? 'primary' : 'teacher';
@@ -6745,6 +6761,23 @@ class enrol_workdaystudent extends enrol_plugin {
 
         // Loop through the enrollments.
         foreach ($enrollments as $enrollment) {
+
+            // Sanity check to make sure course still exists.
+            if (!$DB->get_record('course', ['id' => $enrollment->courseid])) {
+                mtrace("Courseid: $enrollment->courseid already deleted, moving on. User: $enrollment->userid.");
+
+                // Set the section to not link to the course shell.
+                $section = new stdClass();
+                $section->id =  $enrollment->sectionid;
+                $section->idnumber = null;
+                $section->moodle_status = 'pending';
+
+                // Update the insterstitial status.
+                $feupdated = workdaystudent::update_interstitial_enrollment_status($enrollment, true);
+                $supdated = $DB->update_record('enrol_wds_sections', $section);
+
+                continue;
+            }
 
             // Set these for later.
             $periodid = $enrollment->periodid;
