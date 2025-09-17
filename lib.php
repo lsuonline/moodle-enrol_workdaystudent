@@ -80,7 +80,7 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         $cronsections = wdscronhelper::cronsections();
 
         // Process grading schemes.
-        $crongradingschemes = wdscronhelper::crongradeschemes();
+//        $crongradingschemes = wdscronhelper::crongradeschemes();
 
         // Create and update moodle users.
         $cronstucreate = wdscronhelper::cronmusers();
