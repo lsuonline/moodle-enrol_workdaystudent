@@ -514,8 +514,16 @@ $wdsstupdates = new admin_externalpage(
 // Set the context for later use.
 $context = \context_system::instance();
 
+// Set the url for the orphaned user courses page.
+$wdsorphaned = new admin_externalpage(
+    'orphaned_user_courses',
+    new lang_string('orphanedusercourses', 'enrol_workdaystudent'),
+    new moodle_url('/enrol/workdaystudent/orphanedcourses.php')
+);
+
 // Add the links for those who have access (admins for now).
 if (has_capability('moodle/site:config', $context)) {
     $ADMIN->add('enrollwdsfolder', $wdsperiods);
     $ADMIN->add('enrollwdsfolder', $wdsstupdates);
+    $ADMIN->add('enrollwdsfolder', $wdsorphaned);
 }

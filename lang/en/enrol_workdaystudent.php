@@ -172,3 +172,8 @@ $string['unenrollall'] = 'Unenroll all abandoned users';
 $string['unenrollsuccess'] = 'All abandoned users have been unenrolled.';
 $string['nounenrollcandidates'] = 'No abandoned users to unenroll.';
 $string['workdaystudent:unenroll'] = 'Unenroll Abandoned';
+
+$string['orphanedusercourses'] = 'Orphaned User Courses';
+$string['numorphanedusers'] = 'Orphaned users';
+$string['viewdetails'] = 'View details';
+$string['noorphanedusers'] = 'No orphaned users found.';
