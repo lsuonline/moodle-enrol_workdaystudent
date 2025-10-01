@@ -1,4 +1,4 @@
-<?php
+Athletic_Cohort<?php
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -86,6 +86,8 @@ $string['workdaystudent:metafields'] = 'Meta Fields';
 $string['workdaystudent:metafields_desc'] = 'Comma separated list of meta fields to fetch.';
 $string['workdaystudent:sportfield'] = 'Sport Field';
 $string['workdaystudent:sportfield_desc'] = 'Sport field designator.';
+$string['workdaystudent:cohortfield'] = 'Cohort Field';
+$string['workdaystudent:cohortfield_desc'] = 'Cohort field designator for the non-athlete sport cohort.';
 $string['workdaystudent:primaryrole'] = 'Primary Role';
 $string['workdaystudent:primaryrole_desc'] = 'The role you want to use for primary instructors in courses.';
 $string['workdaystudent:nonprimaryrole'] = 'Non-primary Role';

@@ -192,13 +192,23 @@ if ($ADMIN->fulltree) {
         )
     );
 
-    // Workday student metadata fields.
+    // Workday student sports field.
     $settings->add(
         new admin_setting_configtext(
             'enrol_workdaystudent/sportfield',
             get_string('workdaystudent:sportfield', 'enrol_workdaystudent'),
             get_string('workdaystudent:sportfield_desc', 'enrol_workdaystudent'),
             '', PARAM_TEXT
+        )
+    );
+
+    // Workday student cohort field.
+    $settings->add(
+        new admin_setting_configtext(
+            'enrol_workdaystudent/cohortfield',
+            get_string('workdaystudent:cohortfield', 'enrol_workdaystudent'),
+            get_string('workdaystudent:cohortfield_desc', 'enrol_workdaystudent'),
+            'Athletic_Cohort', PARAM_TEXT
         )
     );
 

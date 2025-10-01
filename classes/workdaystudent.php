@@ -2625,10 +2625,12 @@ class workdaystudent {
     }
 
     public static function insert_all_studentmeta($s, $stu, $student, $period) {
+        global $DB;
 
         // Determine what data we're talking about.
         $metafields = explode(',', $s->metafields);
         $sportfield = $s->sportfield;
+        $cohortfield = isset($s->cohortfield) ? $s->cohortfield : 'Athletic_Cohort';
         $athletecounter = 0;
 
         self::dtrace("Beginning to process student metadata for $stu->universal_id.");
@@ -2645,27 +2647,122 @@ class workdaystudent {
             }
         }
 
-        foreach ($metafields as $metafield) {
-            if (isset($student->$sportfield)) {
-                $athletecounter++;
-                foreach ($student->$sportfield as $team) {
+        // Sports!
+        if (isset($student->$sportfield)) {
+            $athletecounter++;
+            foreach ($student->$sportfield as $team) {
 
-                    // Update and insert sports and codes as needed.
-                    $sport = self::create_update_sportcodes($s, $team);
-                    $sports[] = $sport->code;
-                    $supdated = self::insert_studentmeta($s, $stu, 'Athletic_Team_ID', $sport->code, $period);
-                    if ($supdated) {
-                        self::dtrace("    $student->Universal_Id - $student->First_Name $student->Last_Name is on team $sport->code: $sport->name.");
-                    } else {
-                        self::dtrace("    ERROR: $student->Universal_Id - $student->First_Name $student->Last_Name - $sport->code: $sport->name failed to populate.");
-                    }
+                // Update and insert sports and codes as needed.
+                $sport = self::create_update_sportcodes($s, $team);
+                $sports[] = $sport->code;
+                $supdated = self::insert_studentmeta($s, $stu, 'Athletic_Team_ID', $sport->code, $period);
+                if ($supdated) {
+                    self::dtrace("    $student->Universal_Id - $student->First_Name $student->Last_Name is on team $sport->code: $sport->name.");
+                } else {
+                    self::dtrace("    ERROR: $student->Universal_Id - $student->First_Name $student->Last_Name - $sport->code: $sport->name failed to populate.");
                 }
-                break;
+            }
+        }
+
+        // Cohorts!
+        if (isset($student->$cohortfield)) {
+
+            // Build this out for later.
+            $cteam = new stdClass();
+
+            // Only get the name of the field.
+            $cparts = explode(" - ", $student->$cohortfield);
+            $cresult = trim(end($cparts));
+
+            // Build out the object.
+            $cteam->Athletic_Team = $cresult;
+
+            // Get the cohort code if we have one.
+            $ccode = $DB->get_record('enrol_wds_sport', ['name' => $cresult]);
+
+            // If we have a code, use it, if not generate a unique one.
+            if ($ccode) {
+                $cteam->Athletic_Team_ID = $ccode->code;
+            } else {
+                $cteam->Athletic_Team_ID = self::make_cohort_code($cresult);
+            }
+
+            // Update and insert cohort and code as needed.
+            $cohort = self::create_update_sportcodes($s, $cteam);
+
+            $cohorts[] = $cohort->code;
+            $cupdated = self::insert_studentmeta($s, $stu, 'Athletic_Team_ID', $cohort->code, $period);
+            if ($supdated) {
+                self::dtrace("    $student->Universal_Id - $student->First_Name $student->Last_Name is in cohort $cohort->code: $cohort->name.");
+            } else {
+                self::dtrace("    ERROR: $student->Universal_Id - $student->First_Name $student->Last_Name - $cohort->code: $cohort->name failed to populate.");
             }
         }
 
         self::dtrace("Finished processing of student metadata for $stu->universal_id.");
+
         return $athletecounter;
+    }
+
+    /**
+     * Generate a unique 4-letter sport code that does not exist in mdl_enrol_wds_sport.
+     *
+     * @param @string $name The name of the sport or category.
+     * @return @string Unique 3-letter code.
+     */
+    public static function make_cohort_code(string $cohort): string {
+        global $DB;
+
+        // Get the words from the string.
+        $words = preg_split('/\s+/', trim($cohort));
+
+        // We need this for later.
+        $code = '';
+
+        // How many words to we have?
+        if (count($words) > 1) {
+
+            // Multi-word: take first letters until 3 chars.
+            foreach ($words as $w) {
+                if (mb_strlen($code) < 4) {
+                    $code .= mb_substr($w, 0, 1);
+                }
+            }
+            $code = strtoupper($code);
+
+            // If less than 4 chars, pad with more letters from first word.
+            $first = $words[0];
+            $i = 1;
+            while (mb_strlen($code) < 4 && $i < mb_strlen($first)) {
+                $code .= mb_strtoupper(mb_substr($first, $i, 1));
+                $i++;
+            }
+        } else {
+
+            // Single word: take first 3 letters (or pad if shorter).
+            $code = strtoupper(str_pad(mb_substr($words[0], 0, 4), 4, 'X'));
+        }
+
+        // Get all the existing codes.
+        $existing = $DB->get_fieldset_select('enrol_wds_sport', 'code', '', []);
+
+        $base = $code;
+        $suffix = 1;
+
+        while (in_array($code, $existing, true)) {
+
+            // First 3 letters + numeric suffix
+            $code = mb_substr($base, 0, 3) . $suffix;
+            $suffix++;
+
+            // Fallback if numeric suffix goes above 9
+            if ($suffix > 9) {
+                $code = mb_substr($base, 0, 1) . mb_substr($base, -2) . $suffix;
+                $suffix++;
+            }
+        }
+
+        return $code;
     }
 
     public static function truncate_studentmeta() {
@@ -2724,7 +2821,7 @@ class workdaystudent {
         // Set the parms.
         $parms = ['code' => $team->Athletic_Team_ID];
 
-        // Get tthe data.
+        // Get the data.
         $sport = $DB->get_record($table, $parms);
 
         return $sport;
@@ -2800,7 +2897,7 @@ class workdaystudent {
             return $updated;
         } else {
 
-            // Create the student.
+            // Create the sport.
             $created = self::create_sportcode($s, $team);
             return $created;
         }
