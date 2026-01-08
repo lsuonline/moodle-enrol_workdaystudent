@@ -47,6 +47,18 @@ class workdaystudent {
         return $s;
     }
 
+    public static function cached_get_record(int $id, string $table): stdClass {
+        global $DB;
+        static $cache = [];
+
+        if (isset($cache[$id])) {
+            return $cache[$id];
+        }
+
+        $cache[$id] = $DB->get_record($table, ['id' => $id], '*', MUST_EXIST);
+        return $cache[$id];
+    }
+
     /**
      * Resets enrollments prior to pulling from WDS.
      *
@@ -1089,7 +1101,7 @@ class workdaystudent {
                     : $wdate;
         $lastupdate = isset($enrollment->Created_Moment)
                       ? self::dateconv($enrollment->Created_Moment)
-                      : 0;
+                      : time();
 
         // Set the table.
         $table = 'enrol_wds_student_enroll';
@@ -2625,12 +2637,10 @@ class workdaystudent {
     }
 
     public static function insert_all_studentmeta($s, $stu, $student, $period) {
-        global $DB;
 
         // Determine what data we're talking about.
         $metafields = explode(',', $s->metafields);
         $sportfield = $s->sportfield;
-        $cohortfield = isset($s->cohortfield) ? $s->cohortfield : 'Athletic_Cohort';
         $athletecounter = 0;
 
         self::dtrace("Beginning to process student metadata for $stu->universal_id.");
@@ -2647,122 +2657,27 @@ class workdaystudent {
             }
         }
 
-        // Sports!
-        if (isset($student->$sportfield)) {
-            $athletecounter++;
-            foreach ($student->$sportfield as $team) {
+        foreach ($metafields as $metafield) {
+            if (isset($student->$sportfield)) {
+                $athletecounter++;
+                foreach ($student->$sportfield as $team) {
 
-                // Update and insert sports and codes as needed.
-                $sport = self::create_update_sportcodes($s, $team);
-                $sports[] = $sport->code;
-                $supdated = self::insert_studentmeta($s, $stu, 'Athletic_Team_ID', $sport->code, $period);
-                if ($supdated) {
-                    self::dtrace("    $student->Universal_Id - $student->First_Name $student->Last_Name is on team $sport->code: $sport->name.");
-                } else {
-                    self::dtrace("    ERROR: $student->Universal_Id - $student->First_Name $student->Last_Name - $sport->code: $sport->name failed to populate.");
+                    // Update and insert sports and codes as needed.
+                    $sport = self::create_update_sportcodes($s, $team);
+                    $sports[] = $sport->code;
+                    $supdated = self::insert_studentmeta($s, $stu, 'Athletic_Team_ID', $sport->code, $period);
+                    if ($supdated) {
+                        self::dtrace("    $student->Universal_Id - $student->First_Name $student->Last_Name is on team $sport->code: $sport->name.");
+                    } else {
+                        self::dtrace("    ERROR: $student->Universal_Id - $student->First_Name $student->Last_Name - $sport->code: $sport->name failed to populate.");
+                    }
                 }
-            }
-        }
-
-        // Cohorts!
-        if (isset($student->$cohortfield)) {
-
-            // Build this out for later.
-            $cteam = new stdClass();
-
-            // Only get the name of the field.
-            $cparts = explode(" - ", $student->$cohortfield);
-            $cresult = trim(end($cparts));
-
-            // Build out the object.
-            $cteam->Athletic_Team = $cresult;
-
-            // Get the cohort code if we have one.
-            $ccode = $DB->get_record('enrol_wds_sport', ['name' => $cresult]);
-
-            // If we have a code, use it, if not generate a unique one.
-            if ($ccode) {
-                $cteam->Athletic_Team_ID = $ccode->code;
-            } else {
-                $cteam->Athletic_Team_ID = self::make_cohort_code($cresult);
-            }
-
-            // Update and insert cohort and code as needed.
-            $cohort = self::create_update_sportcodes($s, $cteam);
-
-            $cohorts[] = $cohort->code;
-            $cupdated = self::insert_studentmeta($s, $stu, 'Athletic_Team_ID', $cohort->code, $period);
-            if ($supdated) {
-                self::dtrace("    $student->Universal_Id - $student->First_Name $student->Last_Name is in cohort $cohort->code: $cohort->name.");
-            } else {
-                self::dtrace("    ERROR: $student->Universal_Id - $student->First_Name $student->Last_Name - $cohort->code: $cohort->name failed to populate.");
+                break;
             }
         }
 
         self::dtrace("Finished processing of student metadata for $stu->universal_id.");
-
         return $athletecounter;
-    }
-
-    /**
-     * Generate a unique 4-letter sport code that does not exist in mdl_enrol_wds_sport.
-     *
-     * @param @string $name The name of the sport or category.
-     * @return @string Unique 3-letter code.
-     */
-    public static function make_cohort_code(string $cohort): string {
-        global $DB;
-
-        // Get the words from the string.
-        $words = preg_split('/\s+/', trim($cohort));
-
-        // We need this for later.
-        $code = '';
-
-        // How many words to we have?
-        if (count($words) > 1) {
-
-            // Multi-word: take first letters until 3 chars.
-            foreach ($words as $w) {
-                if (mb_strlen($code) < 4) {
-                    $code .= mb_substr($w, 0, 1);
-                }
-            }
-            $code = strtoupper($code);
-
-            // If less than 4 chars, pad with more letters from first word.
-            $first = $words[0];
-            $i = 1;
-            while (mb_strlen($code) < 4 && $i < mb_strlen($first)) {
-                $code .= mb_strtoupper(mb_substr($first, $i, 1));
-                $i++;
-            }
-        } else {
-
-            // Single word: take first 3 letters (or pad if shorter).
-            $code = strtoupper(str_pad(mb_substr($words[0], 0, 4), 4, 'X'));
-        }
-
-        // Get all the existing codes.
-        $existing = $DB->get_fieldset_select('enrol_wds_sport', 'code', '', []);
-
-        $base = $code;
-        $suffix = 1;
-
-        while (in_array($code, $existing, true)) {
-
-            // First 3 letters + numeric suffix
-            $code = mb_substr($base, 0, 3) . $suffix;
-            $suffix++;
-
-            // Fallback if numeric suffix goes above 9
-            if ($suffix > 9) {
-                $code = mb_substr($base, 0, 1) . mb_substr($base, -2) . $suffix;
-                $suffix++;
-            }
-        }
-
-        return $code;
     }
 
     public static function truncate_studentmeta() {
@@ -2821,7 +2736,7 @@ class workdaystudent {
         // Set the parms.
         $parms = ['code' => $team->Athletic_Team_ID];
 
-        // Get the data.
+        // Get tthe data.
         $sport = $DB->get_record($table, $parms);
 
         return $sport;
@@ -2897,7 +2812,7 @@ class workdaystudent {
             return $updated;
         } else {
 
-            // Create the sport.
+            // Create the student.
             $created = self::create_sportcode($s, $team);
             return $created;
         }
@@ -4397,46 +4312,35 @@ class workdaystudent {
             $groups = self::wds_create_moodle_groups($exists, $mshell);
         }
 
-        // If the exists and the idnumbers or shortnames match, update the interstitial record.
-        if (isset($exists->id) && ($exists->idnumber == $course->idnumber || $exists->shortname == $course->shortname))  {
+        // If the exists and the idnumbers match, update the interstitial record.
+        if (isset($exists->id) && $exists->idnumber == $course->idnumber) {
             $sectiontable = 'enrol_wds_sections';
             $sectionids = explode(",", $mshell->sectionids);
 
             // Loop through the section ids.
             foreach ($sectionids as $sectionid) {
 
-                // Build the idb parms.
-                $idbparms = [
+                // Build the parms.
+                $parms = [
                     'id' => $sectionid,
                     'idnumber' => $course->idnumber,
                     'moodle_status' => $exists->id
                 ];
 
                 // Update the record.
-                $idbupdated = $DB->update_record($sectiontable, $idbparms);
+                $updated = $DB->update_record($sectiontable, $parms);
                 self::dtrace("   Course idumber / moodle_status updated in $sectiontable for id: $sectionid.");
             }
-
-            $coursetable = 'course';
-
-            // Build the idb parms.
-            $cparms = [
-                'id' => $exists->id,
-                'idnumber' => $course->idnumber
-            ];
-
-            // Update the record.
-            $cupdated = $DB->update_record($coursetable, $cparms);
 
             // Everything is awesome, return the existing course.
             return $exists;
 
-        // We should never be here! The course exists but shortname and idnumber still do not match what they're supposed to be.
+        // This is not right! The course exists but fullname and idnumber do not match what they're supposed to be.
         } else if (isset($exists->id) && $exists->idnumber != $course->idnumber) {
             mtrace(" Error! We should never have a matching " .
                 "shortname with a mismatched idnumber!");
-            mtrace(" - Error! Course Shell id: $exists->id, " .
-                "Interstitial record idnumber: $course->idnumber.");
+            mtrace(" - Error! Course Shell: $exists->idnumber, " .
+                "Interstitial record: $course->idnumber.");
             return false;
         }
 
@@ -4733,6 +4637,31 @@ class workdaystudent {
         );
 
         return $completed;
+    }
+
+    public static function delete_interstitial_enrollment_status($section_listing_id, $universal_id) {
+        global $DB;
+
+        // Use the teacher table.
+        $table = 'enrol_wds_teacher_enroll';
+
+        // Reality check.
+        if (empty($section_listing_id) || empty($universal_id)) {
+
+            // Nothing to do here.
+            return false;
+        }
+
+        // Do the nasty.
+        $deleted = $DB->delete_records($table, [
+            'role' => 'teacher',
+            'section_listing_id' => $section_listing_id,
+            'universal_id' => $universal_id
+        ]);
+
+        mtrace("Deleted $universal_id from $section_listing_id as primary instructor.");
+
+        return $deleted;
     }
 
     /**
@@ -5043,6 +4972,9 @@ class workdaystudent {
                 // Build out the reprocessectionsql.
                 $reprocesssection = ' AND sec.course_section_definition_id = :courseid';
             }
+//        } else {
+//            $reprocesssection = ' AND tenr.role = \'primary\'
+//                AND sec.controls_grading = 1';
         }
 
         $sql = "SELECT stuenr.id AS enrollment_id,
@@ -5077,7 +5009,6 @@ class workdaystudent {
             GROUP BY stuenr.id
             ORDER BY sec.idnumber ASC,
                 sec.controls_grading ASC,
-                stuenr.status DESC,
                 stuenr.registered_date ASC,
                 stuenr.lastupdate ASC";
 
@@ -5347,26 +5278,33 @@ class workdaystudent {
 
         $oldiparms = ['sectionid' => $seclistid];
 
-        $oldinstructor = $DB->get_record_sql($oldisql, $oldiparms);
+        $oldinstructors = $DB->get_records_sql($oldisql, $oldiparms);
 
-        // If no old instructor or same instructor, no change needed.
-        if (!$oldinstructor || $oldinstructor->universal_id === $section->PMI_Universal_ID) {
-            return false;
-        }
+        // Loop through these and deal.
+        foreach ($oldinstructors as $oldinstructor) {
 
-        // We have a change in PMI. Handle it.
-        workdaystudent::dtrace("PMI change detected for section {$seclistid}" .
-           " Old: {$oldinstructor->universal_id}, New: {$section->PMI_Universal_ID}");
+            // If no old instructor or same instructor, no change needed.
+            if (!$oldinstructor || $oldinstructor->universal_id == $section->PMI_Universal_ID) {
+                continue;
+            }
 
-        // Get the course ID if already created.
-        $courseid = null;
-        if (!empty($existingsection->moodle_status) && $existingsection->moodle_status !== 'pending') {
-            $courseid = $existingsection->moodle_status;
-        }
+            // We have a change in PMI. Handle it.
+            workdaystudent::dtrace("PMI change detected for section {$seclistid}" .
+               " Old: {$oldinstructor->universal_id}, New: {$section->PMI_Universal_ID}");
 
-        // If no course created yet, just update the enrollment records.
-        if (empty($courseid)) {
+            // Get the course ID if already created.
+            $courseid = null;
+            if (!empty($existingsection->moodle_status) && $existingsection->moodle_status !== 'pending') {
+                $courseid = $existingsection->moodle_status;
+            }
 
+            // If no course created yet, just delete the old enrollment record.
+            if (empty($courseid)) {
+
+                // Instead of updating the record, which gets confusing later on, delete it.
+                workdaystudent::delete_interstitial_enrollment_status($seclistid, $oldinstructor->universal_id);
+
+/*
             // Set old instructor to unenroll.
             $oldinstructor->status = 'unenroll';
             $oldinstructor->prevstatus = 'enrolled';
@@ -5379,90 +5317,96 @@ class workdaystudent {
                 'teacher',
                 'unenroll'
             );
+*/
 
-            return true;
-        }
-
-        // Course exists, need to handle proper transfer.
-        $course = $DB->get_record('course', ['id' => $courseid]);
-        if (!$course) {
-            return false;
-        }
-
-        // Check if course has materials or grades.
-        $hasmaterials = workdaystudent::wds_course_has_materials($courseid);
-
-        // Get enrollment instance.
-        $instance = $DB->get_record('enrol',
-            ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
-
-        if (!$instance) {
-            $instance = workdaystudent::wds_create_enrollment_instance($courseid);
-        }
-
-        // Get the plugin.
-        $enrollplugin = enrol_get_plugin('workdaystudent');
-
-        $gnparms = ['courseid' => $courseid, 'userid' => $oldinstructor->userid];
-
-        $gnsql = "SELECT g.name FROM {groups} g
-             JOIN {groups_members} gm ON g.id = gm.groupid
-             WHERE g.courseid = :courseid AND gm.userid = :userid
-             LIMIT 1";
-
-        // Handle old instructor's groups.
-        $groupname = $DB->get_field_sql($gnsql, $gnparms);
-
-        if ($groupname) {
-            $group = $DB->get_record('groups', ['courseid' => $courseid, 'name' => $groupname]);
-            if ($group) {
-
-                // Handle student unenrollments for this group.
-                enrol_workdaystudent::wds_unenroll_group_members($group->id, $oldinstructor);
-
-                // Remove old instructor from group.
-                groups_remove_member($group->id, $oldinstructor->userid);
-
-                // Delete the now empty group.
-                groups_delete_group($group->id);
+                return true;
             }
-        }
 
-        // Check if the instructor is still teaching other sections in this course.
-        $othersectionssql = "SELECT COUNT(*)
-            FROM {enrol_wds_teacher_enroll} tenr
-            INNER JOIN {enrol_wds_sections} sec
-                ON tenr.section_listing_id = sec.section_listing_id
-            WHERE sec.academic_period_id = :periodid
-                AND tenr.universal_id = :uid
-                AND tenr.role = 'primary'
-                AND sec.controls_grading = 1
-                AND sec.course_listing_id = :clid
-                AND tenr.section_listing_id != :currentsectionid
-                AND tenr.status IN ('enroll', 'enrolled')";
+            // Course exists, need to handle proper transfer.
+            $course = $DB->get_record('course', ['id' => $courseid]);
+            if (!$course) {
+                return false;
+            }
 
-        $othersectionsparms = [
-            'uid' => $oldinstructor->universal_id,
-            'periodid' => $section->Academic_Period_ID,
-            'courseid' => $courseid,
-            'clid' => $section->Course_Listing_ID,
-            'currentsectionid' => $seclistid
-        ];
+            // Check if course has materials or grades.
+            $hasmaterials = workdaystudent::wds_course_has_materials($courseid);
 
-        $stillteachingothersections = $DB->count_records_sql($othersectionssql, $othersectionsparms) > 0;
+            // Get enrollment instance.
+            $instance = $DB->get_record('enrol',
+                ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
 
-        if ($stillteachingothersections) {
+            if ($course && !$instance) {
+                $instance = workdaystudent::wds_create_enrollment_instance($courseid);
+            }
 
-            // Instructor still teaches other sections in this course - just update the section record.
-            workdaystudent::dtrace("Keeping instructor {$oldinstructor->universal_id} enrolled in course {$courseid} as they still teach other sections.");
+                // Get the plugin.
+                $enrollplugin = enrol_get_plugin('workdaystudent');
 
-            // Update the section record to move it to pending status
-            $sectionrecord = new stdClass();
-            $sectionrecord->id = $existingsection->id;
-            $sectionrecord->idnumber = null;
-            $sectionrecord->moodle_status = 'pending';
-            $DB->update_record('enrol_wds_sections', $sectionrecord);
+            $gnparms = ['courseid' => $courseid, 'userid' => $oldinstructor->userid];
 
+            $gnsql = "SELECT g.name FROM {groups} g
+                JOIN {groups_members} gm ON g.id = gm.groupid
+                WHERE g.courseid = :courseid AND gm.userid = :userid
+                LIMIT 1";
+
+            // Handle old instructor's groups.
+            $groupname = $DB->get_field_sql($gnsql, $gnparms);
+
+            if ($groupname) {
+                $group = $DB->get_record('groups', ['courseid' => $courseid, 'name' => $groupname]);
+                if ($group) {
+
+                    // Handle student unenrollments for this group.
+                    enrol_workdaystudent::wds_unenroll_group_members($group->id, $oldinstructor);
+
+                    // Remove old instructor from group.
+                    groups_remove_member($group->id, $oldinstructor->userid);
+
+                    // Delete the now empty group.
+                    groups_delete_group($group->id);
+                }
+            }
+
+            // Check if the instructor is still teaching other sections in this course.
+            $othersectionssql = "SELECT COUNT(*)
+                FROM {enrol_wds_teacher_enroll} tenr
+                INNER JOIN {enrol_wds_sections} sec
+                    ON tenr.section_listing_id = sec.section_listing_id
+                WHERE sec.academic_period_id = :periodid
+                    AND tenr.universal_id = :uid
+                    AND tenr.role = 'primary'
+                    AND sec.controls_grading = 1
+                    AND sec.course_listing_id = :clid
+                    AND tenr.section_listing_id != :currentsectionid
+                    AND tenr.status IN ('enroll', 'enrolled')";
+
+            $othersectionsparms = [
+                'uid' => $oldinstructor->universal_id,
+                'periodid' => $section->Academic_Period_ID,
+                'courseid' => $courseid,
+                'clid' => $section->Course_Listing_ID,
+                'currentsectionid' => $seclistid
+            ];
+
+            $stillteachingothersections = $DB->count_records_sql($othersectionssql, $othersectionsparms) > 0;
+
+            if ($stillteachingothersections) {
+
+                // Instructor still teaches other sections in this course - just update the section record.
+                workdaystudent::dtrace("Keeping instructor {$oldinstructor->universal_id} enrolled in course " .
+                    "{$courseid} as they still teach other sections.");
+
+                // Update the section record to move it to pending status
+                $sectionrecord = new stdClass();
+                $sectionrecord->id = $existingsection->id;
+                $sectionrecord->idnumber = null;
+                $sectionrecord->moodle_status = 'pending';
+                $DB->update_record('enrol_wds_sections', $sectionrecord);
+
+                // Instead of updating the record, which gets confusing later on, delete it.
+                workdaystudent::delete_interstitial_enrollment_status($seclistid, $oldinstructor->universal_id);
+
+/*
             // Update enrollment record for this specific section
             workdaystudent::insert_update_teacher_enrollment(
                 $seclistid,
@@ -5470,11 +5414,16 @@ class workdaystudent {
                 'teacher',
                 'unenrolled'
             );
+*/
 
-            // We're teaching another section in this shell, so return now.
-            return true;
-        }
+                // We're teaching another section in this shell, so move on to the next.
+                continue;
+            }
 
+            // Instead of updating the record, which gets confusing later on, delete it.
+            workdaystudent::delete_interstitial_enrollment_status($seclistid, $oldinstructor->universal_id);
+
+/*
         // Update enrollment record.
         workdaystudent::insert_update_teacher_enrollment(
             $seclistid,
@@ -5482,43 +5431,45 @@ class workdaystudent {
             'teacher',
             'unenrolled'
         );
+*/
 
-        if (!$hasmaterials) {
+            if (!$hasmaterials) {
 
-            // Course has no materials, unenroll instructor and delete course.
-            $enrollplugin->unenrol_user($instance, $oldinstructor->userid);
+                // Course has no materials, unenroll instructor and delete course.
+                $enrollplugin->unenrol_user($instance, $oldinstructor->userid);
 
-            // Update the section record to disassociate from this course.
-            $sectionrecord = new stdClass();
-            $sectionrecord->id = $existingsection->id;
-            $sectionrecord->idnumber = null;
-            $sectionrecord->moodle_status = 'pending';
-            $DB->update_record('enrol_wds_sections', $sectionrecord);
+                // Update the section record to disassociate from this course.
+                $sectionrecord = new stdClass();
+                $sectionrecord->id = $existingsection->id;
+                $sectionrecord->idnumber = null;
+                $sectionrecord->moodle_status = 'pending';
+                $DB->update_record('enrol_wds_sections', $sectionrecord);
 
-            // Delete the course if truly empty.
-            delete_course($courseid, false);
+                // Delete the course if truly empty.
+                delete_course($courseid, false);
 
-            workdaystudent::dtrace("Deleted empty course {$courseid} as part of PMI change.");
-        } else {
+                workdaystudent::dtrace("Deleted empty course {$courseid} as part of PMI change.");
+            } else {
 
-            // Course has materials or grades, just unenroll the instructor but keep course.
-            $enrollplugin->unenrol_user($instance, $oldinstructor->userid);
-            workdaystudent::dtrace("Kept course {$courseid} with materials during PMI change.");
+                // Course has materials or grades, just unenroll the instructor but keep course.
+                $enrollplugin->unenrol_user($instance, $oldinstructor->userid);
+                workdaystudent::dtrace("Kept course {$courseid} with materials during PMI change.");
 
-            // IMPORTANT: Unset the course's idnumber to prevent conflicts with new shells.
-            $courseupdate = new stdClass();
-            $courseupdate->id = $courseid;
-            $courseupdate->idnumber = '';
-            $DB->update_record('course', $courseupdate);
+                // IMPORTANT: Unset the course's idnumber to prevent conflicts with new shells.
+                $courseupdate = new stdClass();
+                $courseupdate->id = $courseid;
+                $courseupdate->idnumber = '';
+                $DB->update_record('course', $courseupdate);
 
-            // Update the section record to disassociate from this course.
-            $sectionrecord = new stdClass();
-            $sectionrecord->id = $existingsection->id;
-            $sectionrecord->idnumber = null;
-            $sectionrecord->moodle_status = 'pending';
-            $DB->update_record('enrol_wds_sections', $sectionrecord);
+                // Update the section record to disassociate from this course.
+                $sectionrecord = new stdClass();
+                $sectionrecord->id = $existingsection->id;
+                $sectionrecord->idnumber = null;
+                $sectionrecord->moodle_status = 'pending';
+                $DB->update_record('enrol_wds_sections', $sectionrecord);
 
-            workdaystudent::dtrace("Kept course {$courseid} with materials during PMI change. Course idnumber cleared.");
+                workdaystudent::dtrace("Kept course {$courseid} with materials during PMI change. Course idnumber cleared.");
+            }
         }
 
         // TODO: Set the students for the courses that were unenrolled to 'tobeupdated' so they can be processed properly JIC.
@@ -5970,9 +5921,6 @@ class wdscronhelper {
 
         $numgrabbed = 0;
 
-        // Set up some timing.
-        $processstart = microtime(true);
-
         foreach($periods as $period) {
 
             // Set upo the parameter array.
@@ -6000,7 +5948,7 @@ class wdscronhelper {
                 "$period->academic_period_id in $grabtime seconds. Processing.");
 
             // Set up some timing.
-            $periodstart = microtime(true);
+            $processstart = microtime(true);
 
             // Loop through the sections.
             foreach ($sections as $section) {
