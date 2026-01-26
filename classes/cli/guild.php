@@ -39,9 +39,9 @@ $s = workdaystudent::get_settings();
 // Get the courses.
 $guilds = workdaystudent::get_guild($s);
 
-$doit = workdaystudent::set_guild_data($guilds);
+//$doit = workdaystudent::set_guild_data($guilds);
 
-die();
+//die();
 
 /*
 
