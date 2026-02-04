@@ -337,6 +337,11 @@ class workdaystudent {
             // Get the UID.
             $guild = self::get_uid_sfpr($guild);
 
+            // Do not process if we don't have any guild enrollments.
+            if (!isset($guild->Student_Course_Registrations_group)) {
+                continue;
+            }
+
             // Loop through the student's registrations.
             foreach ($guild->Student_Course_Registrations_group as $registration) {
 

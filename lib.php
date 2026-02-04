@@ -342,7 +342,7 @@ function enrol_workdaystudent_extend_navigation_course($navigation, $course, $co
     $usersnode = $navigation->get('users');
 
     // Logic for 'Unenroll Orphans' link.
-    if (is_siteadmin()) {
+    if (is_siteadmin() || has_capability('enrol/workdaystudent:unenroll', $context)) {
 
         // Set the url for the reprocesser.
         $url = new moodle_url('/enrol/workdaystudent/unenroll_candidates.php', ['id' => $course->id]);
