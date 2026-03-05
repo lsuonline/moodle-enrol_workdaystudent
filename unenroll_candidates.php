@@ -67,8 +67,11 @@ $sql = "SELECT u.id,
       AND ue.userid NOT IN (
         SELECT stu.userid
         FROM {enrol_wds_sections} sec
-        INNER JOIN {enrol_wds_student_enroll} se ON sec.section_listing_id = se.section_listing_id
-        INNER JOIN {enrol_wds_students} stu ON stu.universal_id = se.universal_id AND se.status = 'enrolled'
+        INNER JOIN {enrol_wds_student_enroll} se
+            ON sec.section_listing_id = se.section_listing_id
+        INNER JOIN {enrol_wds_students} stu
+            ON stu.universal_id = se.universal_id
+            AND se.status IN ('enroll', 'enrolled')
         WHERE sec.moodle_status = :courseid2
     )
     ORDER BY u.lastname ASC, u.firstname ASC

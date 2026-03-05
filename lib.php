@@ -126,6 +126,9 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
         // Get the section records.
         $sections = $DB->get_records($stable, $sparms);
 
+        // Grab the sectioncount.
+        $sectioncount = count($sections);
+
         // Fetch the main class.
         require_once('classes/workdaystudent.php');
 
@@ -137,7 +140,7 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
 
         foreach ($sections as $section) {
 
-            mtrace("Starting Moodle Student enrollments for $section->section_listing_id..");
+            mtrace("Starting Moodle Student enrollments for $section->section_listing_id.");
 
             // Reprocess should first set all enrollments in the course to ToBeUpdated prior to reprocessing.
             $reset = workdaystudent::reset_enrollments($section->section_listing_id);
@@ -151,7 +154,11 @@ class enrol_workdaystudent_plugin extends enrol_plugin {
             $nonactive = workdaystudent::wds_get_insert_missing_students(
                 $section->course_section_definition_id
             );
+
+            mtrace("Finished Moodle Student enrollments for $section->section_listing_id.");
         }
+
+        mtrace("We have finished processing all $sectioncount sections.\n");
 
         // Enroll the students into courses and groups.
         $cronenrollments = wdscronhelper::cronmenrolls($courseid);

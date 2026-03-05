@@ -2001,7 +2001,7 @@ class workdaystudent {
 
         $period = [reset($periods)];
 
-        return $period;
+        return $periods;
     }
 
     public static function get_current_periods($s) {
@@ -4976,10 +4976,23 @@ class workdaystudent {
         return true;
     }
 
-    public static function wds_get_faculty_enrollments($period) {
+    public static function wds_get_faculty_enrollments($period, $courseid = null) {
         global $DB;
 
-	$sql = "SELECT tenr.id AS enrollment_id,
+        // More safely handle this.
+        $parms = ['period' => $period->academic_period_id];
+
+        // Do not get stuipid random data.
+        if (is_null($courseid)) {
+            $enrollstatuses = "AND tenr.status IN ('enroll', 'unenroll')";
+            $courselevel = '';
+        } else {
+            $parms['courseid'] = $courseid;
+            $enrollstatuses = "AND tenr.status IN ('enroll', 'enrolled', 'unenroll', 'unenrolled')";
+            $courselevel = 'AND c.id = :courseid';
+        }
+
+	    $sql = "SELECT tenr.id AS enrollment_id,
             sec.id AS sectionid,
             sec.academic_period_id AS periodid,
             c.id AS courseid,
@@ -5011,12 +5024,13 @@ class workdaystudent {
                     ON u.id = tea.userid
                     AND u.idnumber = tea.universal_id
             WHERE sec.controls_grading = 1
-                AND tenr.status IN ('enroll', 'unenroll')
-                AND sec.academic_period_id = '$period->academic_period_id'
+                $enrollstatuses
+                AND sec.academic_period_id = :period
+                $courselevel
             GROUP BY tenr.id
             ORDER BY c.id ASC, tenr.id ASC";
 
-        $enrollments = $DB->get_records_sql($sql);
+        $enrollments = $DB->get_records_sql($sql, $parms);
 
         return $enrollments;
     }
@@ -5582,11 +5596,11 @@ class workdaystudent {
         // Refresh faculty enrollments after processing.
         $periods = workdaystudent::get_specified_period($courseid);
         foreach ($periods as $period) {
-            $enrollments = workdaystudent::wds_get_faculty_enrollments($period);
+            $enrollments = workdaystudent::wds_get_faculty_enrollments($period, $courseid);
             enrol_workdaystudent::wds_bulk_faculty_enrollments($enrollments);
         }
 
-        mtrace("Completed instructor enrollment reprocessing for course ID: $courseid");
+        mtrace("Completed faculty enrollment reprocessing for course ID: $courseid.\n");
 
         return true;
     }
@@ -6931,7 +6945,7 @@ class enrol_workdaystudent extends enrol_plugin {
             }
 
             // Enrollment follows.
-            if ($status == 'enroll') {
+            if ($status == 'enroll' || $status == 'enrolled') {
 
                 // If we don't have any enrollments for this course, set it to 0.
                 if (!isset($enrollmentcounts[$courseid])) {
@@ -7011,7 +7025,7 @@ class enrol_workdaystudent extends enrol_plugin {
                 }
 
             // Let's deal with unenrollments.
-            } else if ($status == 'unenroll') {
+            } else if ($status == 'unenroll' || $status == 'unenrolled') {
 
                 // Set the section to not link to the course shell.
                 $section = new stdClass();
