@@ -5035,7 +5035,7 @@ class workdaystudent {
         return $enrollments;
     }
 
-    public static function wds_get_student_enrollments($period, $courseid = null) {
+    public static function wds_get_student_enrollments($period, $courseid = null, $enrollprior = null) {
         global $DB;
 
         // Build out the parms.
@@ -5064,6 +5064,18 @@ class workdaystudent {
             }
         }
 
+        // When enrollprior is set, join the periods table and add the enrollment-window gate.
+        // unenroll rows (drops/withdrawals) are always returned regardless of the window.
+        $periodsjoin = '';
+        $enrollpriorclause = '';
+        if (!is_null($enrollprior)) {
+            $parms['enrollpriordays'] = (int) $enrollprior * 86400;
+            $periodsjoin = "INNER JOIN {enrol_wds_periods} per
+                    ON per.academic_period_id = sec.academic_period_id";
+            $enrollpriorclause = " AND (stuenr.status = 'unenroll'
+                OR per.start_date <= UNIX_TIMESTAMP() + :enrollpriordays)";
+        }
+
         $sql = "SELECT stuenr.id AS enrollment_id,
                 stu.userid AS userid,
                 stuenr.universal_id AS student_id,
@@ -5089,10 +5101,12 @@ class workdaystudent {
                     ON tenr.section_listing_id = sec.section_listing_id
                 LEFT JOIN {enrol_wds_students} stu
                     ON stu.universal_id = stuenr.universal_id
+                $periodsjoin
             WHERE sec.academic_period_id = :apid
                 AND sec.idnumber IS NOT NULL
                 AND stuenr.status IN ('enroll', 'unenroll')
                 $reprocesssection
+                $enrollpriorclause
             GROUP BY stuenr.id
             ORDER BY sec.idnumber ASC,
                 sec.controls_grading ASC,
@@ -5100,9 +5114,9 @@ class workdaystudent {
                 stuenr.registered_date ASC,
                 stuenr.lastupdate ASC";
 
-            $enrollments = $DB->get_records_sql($sql, $parms);
+        $enrollments = $DB->get_records_sql($sql, $parms);
 
-            return $enrollments;
+        return $enrollments;
     }
 
     public static function get_wds_groups($courseid, $userid, $periodid) {
@@ -6703,6 +6717,9 @@ class wdscronhelper {
     public static function cronmenrolls($courseid = null) {
         $s = workdaystudent::get_settings();
 
+        // Read the enrollment-window setting. Defaults to 14 days if not configured.
+        $enrollprior = isset($s->enrollprior) ? (int) $s->enrollprior : 14;
+
         if (!is_null($courseid)) {
 
             // Get the period for this courseid.
@@ -6718,8 +6735,12 @@ class wdscronhelper {
         mtrace("Enrolling students for $periodcount periods.");
         foreach ($periods as $period) {
 
+            // When reprocessing a specific course ($courseid is non-null), bypass the
+            // enrollment-window gate so the teacher gets an immediate full sync.
+            $effectiveenrollprior = is_null($courseid) ? $enrollprior : null;
+
             // Get all the enrollment for this period.
-            $enrollments = workdaystudent::wds_get_student_enrollments($period, $courseid);
+            $enrollments = workdaystudent::wds_get_student_enrollments($period, $courseid, $effectiveenrollprior);
 
             // Bulk enrollment.
             $wdsbulk = enrol_workdaystudent::wds_bulk_student_enrollments($enrollments);
