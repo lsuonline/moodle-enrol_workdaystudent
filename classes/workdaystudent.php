@@ -1288,8 +1288,18 @@ class workdaystudent {
         string $schedule,
         string $timezone = 'America/Chicago'): array {
 
+        // So we don't waste time staring into the abyss.
+        if ($schedule == '') {
+            return [];
+        }
+
         // Split the string into days and time.
         [$dayspart, $timepart] = explode('|', $schedule);
+
+        // So we don't waste time staring into the abyss.
+        if (is_null($dayspart) || is_null($timepart)) {
+            return [];
+        }
 
         // Trim the whitespace.
         $dayspart = trim($dayspart);
