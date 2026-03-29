@@ -33,7 +33,6 @@ defined('MOODLE_INTERNAL') || die();
 function xmldb_enrol_workdaystudent_upgrade($oldversion) {
     global $CFG, $DB;
     $dbman = $DB->get_manager();
-
     // START OF MODIFICATIONS FOR VERSION 2025062000.
     if ($oldversion < 2025062000) {
         $tablesections = new xmldb_table('enrol_wds_sections');
@@ -61,6 +60,18 @@ function xmldb_enrol_workdaystudent_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025062000, 'enrol', 'workdaystudent');
     }
     // END OF MODIFICATIONS FOR VERSION 2025062000.
+
+    // START OF MODIFICATIONS FOR VERSION 2026011400.
+    if ($oldversion < 2026011400) {
+        $tablesections = new xmldb_table('enrol_wds_sections');
+
+        $fieldwdstatus = new xmldb_field('wd_status', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL);
+
+        $dbman->change_field_type($tablesections, $fieldwdstatus);
+
+        upgrade_plugin_savepoint(true, 2026011400, 'enrol', 'workdaystudent');
+    }
+    // END OF MODIFICATIONS FOR VERSION 2026011400.
 
     return true;
 }
