@@ -5335,7 +5335,7 @@ class workdaystudent {
      * @return @bool Success status
      */
     public static function handle_instructor_change($section, $existingsection) {
-        global $DB;
+        global $CFG, $DB;
 
         if (!isset($section->course_listing_id)) {
 
@@ -5386,6 +5386,34 @@ class workdaystudent {
         // We have a change in PMI. Handle it.
         workdaystudent::dtrace("PMI change detected for section {$seclistid}" .
            " Old: {$oldinstructor->universal_id}, New: {$section->PMI_Universal_ID}");
+
+        // Get the section listing id for futured use.
+        /* TODO: Why are we doing this? Nothing above happens without $seclistid being set to the appropriate section listing id.
+        $sli = isset($seclistid) ? $seclistid : (
+            $section->Section_Listing_ID ?? $section->section_listing_id ?? (
+                $existingsection->section_listing_id ?? null
+            )
+        );
+        */
+
+        // We should already have this, so use it.
+        $sli = $section->id;
+
+        // Remove wdsprefs cross split records for this section + removed instructor.
+        if ($sli && !empty($oldinstructor->universal_id)) {
+
+            // Make sure we ahve the class loaded.
+            if (class_exists('wdsprefs')) {
+
+                // Do the nasty.
+                wdsprefs::remove_crosssplit_records_for_section_instructor($sli, $oldinstructor->universal_id);
+            } else {
+                require_once($CFG->dirroot . '/blocks/wdsprefs/classes/wdsprefs.php');
+
+                // Do the nasty.
+                wdsprefs::remove_crosssplit_records_for_section_instructor($sli, $oldinstructor->universal_id);
+            }
+        }
 
         // Get the course ID if already created.
         $courseid = null;
